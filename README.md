@@ -20,8 +20,6 @@ Employment and wage figures are derived from Open Canada data for 2023–2025. L
 
 Digital AI Exposure is an estimate of how much an occupation's tasks may interact with current AI capabilities. It is not a forecast of layoffs or job elimination. Adoption, demand, regulation, and human preferences are not captured by a single exposure score.
 
-The project was inspired by the public [Canadian Job Market Visualizer](https://canada-ai-jobs.netlify.app/) and rebuilds the experience with an original interface and implementation.
-
 ## Run locally
 
 ```bash
