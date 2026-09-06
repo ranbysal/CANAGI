@@ -576,7 +576,7 @@ summary:focus-visible {
   -webkit-line-clamp: 3;
 }
 
-.tile-label span {
+.tile-label > span {
   overflow: hidden;
   margin-top: 0.22rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -903,5 +903,637 @@ summary:focus-visible {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* Automatic entry: the exit completes before any explorer content appears. */
+html {
+  scrollbar-gutter: stable;
+}
+
+.canagi-app {
+  position: relative;
+  --text-delay: 0ms;
+  --char-step: 12ms;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px !important;
+  height: 1px !important;
+  padding: 0 !important;
+  margin: -1px !important;
+  overflow: hidden !important;
+  clip: rect(0, 0, 0, 0) !important;
+  white-space: nowrap !important;
+  border: 0 !important;
+}
+
+.animated-word {
+  display: inline-block;
+  white-space: nowrap;
+}
+
+.animated-char {
+  opacity: 1;
+}
+
+.launch-scene,
+.intro-screen {
+  position: relative;
+  min-height: 100svh;
+}
+
+.intro-screen {
+  background: var(--background);
+}
+
+.intro-copy {
+  transform-origin: 0 50%;
+}
+
+.intro-art {
+  --intro-art-strength: 0.92;
+  opacity: var(--intro-art-strength);
+}
+
+.enter-button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.enter-button::before {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background: color-mix(in srgb, var(--blue) 22%, var(--background));
+  content: "";
+  transform: scaleX(var(--entry-progress, 0));
+  transform-origin: 0 50%;
+  transition: transform 240ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.enter-button > span,
+.enter-button > svg {
+  position: relative;
+  z-index: 1;
+}
+
+.enter-button:disabled {
+  cursor: progress;
+}
+
+.entry-action {
+  position: relative;
+  width: fit-content;
+}
+
+.scroll-hint {
+  position: absolute;
+  z-index: 3;
+  bottom: max(1.7rem, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  margin: 0;
+  color: var(--text);
+  font-family: "Courier New", monospace;
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-align: center;
+}
+
+.scroll-hint > span {
+  display: inline-block;
+  animation: scroll-breathe 3600ms ease-in-out infinite;
+}
+
+.home-button {
+  --entry-progress: 0;
+  position: fixed;
+  z-index: 30;
+  top: max(0.8rem, env(safe-area-inset-top));
+  right: clamp(0.9rem, 3.75vw, 4.5rem);
+  display: none;
+  gap: 0.75rem;
+  margin: 0;
+  padding: 0.7rem 1rem;
+  background: var(--background);
+  font-family: "Courier New", monospace;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+}
+
+.canagi-app[data-scene='entering'] .home-button,
+.canagi-app[data-scene='explorer'] .home-button,
+.canagi-app[data-scene='returning'] .home-button {
+  display: inline-flex;
+}
+
+.canagi-app[data-scene='entering'] .home-button {
+  animation: frame-in 400ms 1700ms ease both;
+}
+
+.canagi-app[data-scene='leaving'] .enter-button,
+.canagi-app[data-scene='returning'] .home-button {
+  border-color: var(--blue);
+  animation: button-exit 280ms 650ms ease both;
+}
+
+.canagi-app[data-scene='leaving'] .enter-button::before,
+.canagi-app[data-scene='returning'] .home-button::before {
+  animation: button-fill 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.canagi-app[data-scene='leaving'] .enter-button > svg {
+  animation: arrow-enter 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.canagi-app[data-scene='leaving'] .intro-copy {
+  animation: launch-exit 1100ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+
+.canagi-app[data-scene='leaving'] .intro-copy .animated-char {
+  animation: character-out 160ms ease both;
+  animation-delay: calc(var(--text-delay) + var(--char-index) * var(--char-step));
+}
+
+.canagi-app[data-scene='leaving'] .intro-art {
+  animation: artwork-exit 920ms 160ms cubic-bezier(0.4, 0, 0.6, 1) both;
+}
+
+.canagi-app[data-scene='leaving'] .site-nav {
+  animation: frame-out 420ms 100ms ease both;
+}
+
+.canagi-app[data-scene='leaving'] .scroll-hint {
+  animation: frame-out 260ms ease both;
+}
+
+.canagi-app[data-scene='leaving'],
+.canagi-app[data-scene='entering'],
+.canagi-app[data-scene='returning'],
+.canagi-app[data-scene='arriving'] {
+  touch-action: none;
+  overscroll-behavior: none;
+}
+
+.canagi-app[data-scene='entering'] .launch-scene,
+.canagi-app[data-scene='entering'] .site-nav {
+  visibility: hidden;
+}
+
+.canagi-app[data-scene='explorer'] .launch-scene,
+.canagi-app[data-scene='explorer'] .site-nav,
+.canagi-app[data-scene='returning'] .launch-scene,
+.canagi-app[data-scene='returning'] .site-nav {
+  display: none;
+}
+
+.explorer-section {
+  position: fixed;
+  z-index: 5;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100svh;
+  min-height: 100svh;
+  margin: 0;
+  padding: 0;
+  visibility: hidden;
+  overflow: hidden;
+  overflow-anchor: none;
+  background: var(--background);
+}
+
+.explorer-stage {
+  position: relative;
+  min-height: 100svh;
+  padding: clamp(0.65rem, 0.9vw, 1rem) clamp(1rem, 3.75vw, 4.5rem) 2rem;
+  isolation: isolate;
+}
+
+.canagi-app[data-scene='entering'] .explorer-section {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  visibility: visible;
+}
+
+.canagi-app[data-scene='explorer'] .explorer-section,
+.canagi-app[data-scene='returning'] .explorer-section {
+  position: relative;
+  height: auto;
+  overflow: visible;
+  visibility: visible;
+}
+
+.explorer-heading {
+  height: auto;
+  min-height: clamp(20rem, 36svh, 24rem);
+  overflow: visible;
+  margin: 0 calc(clamp(1rem, 3.75vw, 4.5rem) * -1);
+  padding: clamp(1rem, 1.6vw, 1.7rem) clamp(1.5rem, 5.1vw, 6rem) 1.25rem;
+}
+
+.explorer-copy {
+  width: min(47rem, 50vw);
+}
+
+.explorer-copy h2 {
+  margin: 0.58rem 0 0.65rem;
+  font-size: clamp(2.65rem, 4.25vw, 4.7rem);
+  line-height: 1.04;
+}
+
+.heading-line {
+  display: block;
+  overflow: visible;
+}
+
+.explorer-copy > p:not(.section-kicker) {
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+.explorer-copy .source-line {
+  margin-top: 0.48rem;
+  font-size: clamp(0.78rem, 0.8vw, 0.88rem);
+}
+
+.methodology-note {
+  margin-top: 0.65rem;
+  font-size: 0.8rem;
+}
+
+#intro-title:focus,
+#explorer-title:focus,
+#methodology:focus {
+  outline: none;
+}
+
+.explorer-art {
+  --explorer-art-strength: 0.9;
+  top: 0;
+  right: -4.5rem;
+  width: min(61vw, 74rem);
+  height: 100%;
+  overflow: hidden;
+  opacity: var(--explorer-art-strength);
+}
+
+.explorer-art img {
+  margin-top: -1.9rem;
+}
+
+.canagi-app[data-scene='entering'] .explorer-art {
+  animation: artwork-in 1000ms 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.canagi-app[data-scene='entering'] .explorer-section .animated-char {
+  animation: character-in 110ms linear both;
+  animation-delay: calc(var(--text-delay) + var(--char-index) * var(--char-step));
+}
+
+.canagi-app[data-scene='entering'] .methodology-note summary::marker {
+  color: transparent;
+}
+
+.layer-bar {
+  padding: 0.68rem 0 0.72rem;
+}
+
+.canagi-app[data-scene='entering'] .layer-bar {
+  animation: frame-in 320ms 550ms ease both;
+}
+
+.canagi-app[data-scene='entering'] .stats-grid {
+  animation: frame-in 300ms 650ms ease both;
+}
+
+.control-label {
+  margin-bottom: 0.35rem;
+}
+
+.layer-buttons {
+  gap: 0.48rem;
+}
+
+.layer-buttons button {
+  min-width: 7.5rem;
+  padding: 0.42rem 0.85rem;
+  font-size: 0.79rem;
+}
+
+.metric-card {
+  --card-delay: calc(700ms + var(--metric-index) * 70ms);
+  --text-delay: calc(var(--card-delay) + 100ms);
+  min-height: 8.65rem;
+  padding: 0.75rem 0.78rem 0.65rem;
+}
+
+.canagi-app[data-scene='entering'] .metric-card {
+  animation: frame-in 340ms ease both;
+  animation-delay: var(--card-delay);
+}
+
+.metric-card:first-child {
+  padding-left: 0.72rem;
+}
+
+.metric-card h3 {
+  margin-bottom: 0.48rem;
+  font-size: 0.61rem;
+}
+
+.metric-value {
+  font-size: clamp(1.9rem, 2.35vw, 2.75rem);
+}
+
+.metric-note {
+  margin-top: 0.32rem;
+  font-size: 0.68rem;
+}
+
+.distribution-chart {
+  height: 5.2rem;
+  padding-top: 0.5rem;
+}
+
+.distribution-column i {
+  transform-origin: 50% 100%;
+}
+
+.canagi-app[data-scene='entering'] .distribution-column i {
+  animation: bar-up 520ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--text-delay);
+}
+
+.metric-rows {
+  gap: 0.23rem;
+}
+
+.metric-row {
+  grid-template-columns: minmax(4.9rem, auto) minmax(1rem, 1fr) auto auto;
+  gap: 0.3rem;
+  font-size: 0.59rem;
+}
+
+.metric-row-bar i {
+  transform-origin: 0 50%;
+}
+
+.canagi-app[data-scene='entering'] .metric-row-bar i {
+  animation: bar-across 550ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--text-delay);
+  transform-origin: 0 50%;
+}
+
+.canagi-app[data-scene='entering'] .color-legend > i {
+  animation: bar-across 550ms 850ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: 0 50%;
+}
+
+.metric-row strong,
+.metric-row small {
+  font-size: 0.57rem;
+}
+
+.treemap-figure {
+  margin-top: 0.78rem;
+}
+
+.canagi-app[data-scene='entering'] .treemap-shell {
+  background: transparent;
+}
+
+.treemap-cell {
+  opacity: 1;
+}
+
+.canagi-app[data-scene='entering'] .treemap-cell {
+  /* The actual geometry stays still. The reveal travels across it. */
+  animation: tile-in 360ms cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation-delay: var(--tile-delay);
+}
+
+.tile-label {
+  line-height: 1.02;
+}
+
+.tile-label strong {
+  font-size: clamp(0.57rem, 0.67vw, 0.78rem);
+  -webkit-line-clamp: 4;
+}
+
+.tile-label--compact strong {
+  font-size: clamp(0.48rem, 0.56vw, 0.66rem);
+  line-height: 0.98;
+}
+
+.tile-label .animated-word {
+  display: inline;
+  white-space: normal;
+  overflow-wrap: anywhere;
+}
+
+.tile-word,
+.tile-initial {
+  fill: #ffffff;
+  color: #ffffff;
+  font-family: "PT Serif", Georgia, serif;
+  font-weight: 700;
+  paint-order: stroke;
+  stroke: rgba(0, 0, 0, 0.12);
+  stroke-width: 0.35px;
+  stroke-linejoin: round;
+}
+
+.tile-word {
+  letter-spacing: -0.02em;
+}
+
+.canagi-app[data-scene='entering'] .site-footer {
+  animation: frame-in 400ms 1800ms ease both;
+}
+
+.canagi-app[data-scene='entering'] .data-state {
+  animation: frame-in 400ms ease both;
+}
+
+/* Finished content has no animation state to reset when the theme changes. */
+.canagi-app[data-scene='explorer'] .animated-char {
+  opacity: 1;
+  animation: none;
+}
+
+/* Return fades in place, even when HOME is used further down the page. */
+.canagi-app[data-scene='returning'] .home-button > svg {
+  animation: arrow-home 460ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.canagi-app[data-scene='returning'] .explorer-stage {
+  animation: frame-out 500ms 650ms ease both;
+}
+
+.canagi-app[data-scene='returning'] .explorer-heading {
+  animation: frame-out 650ms 180ms ease both;
+}
+
+.canagi-app[data-scene='returning'] .explorer-copy .animated-char {
+  animation: character-out 160ms ease both;
+  animation-delay: min(380ms, calc(var(--char-index) * 4ms));
+}
+
+.canagi-app[data-scene='returning'] .layer-bar {
+  animation: frame-out 400ms 250ms ease both;
+}
+
+.canagi-app[data-scene='returning'] .metric-card {
+  animation: frame-out 400ms ease both;
+  animation-delay: calc(150ms + var(--metric-index) * 45ms);
+}
+
+.canagi-app[data-scene='returning'] .treemap-shell {
+  background: transparent;
+}
+
+.canagi-app[data-scene='returning'] .treemap-cell {
+  animation: frame-out 420ms ease both;
+  animation-delay: calc((var(--tile-delay) - 680ms) * 0.48);
+}
+
+.canagi-app[data-scene='arriving'] .intro-copy .animated-char {
+  animation: character-in 110ms linear both;
+  animation-delay: calc(var(--text-delay) + var(--char-index) * var(--char-step));
+}
+
+.canagi-app[data-scene='arriving'] .intro-art {
+  animation: intro-art-in 1000ms 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.canagi-app[data-scene='arriving'] .site-nav {
+  animation: frame-in 500ms 200ms ease both;
+}
+
+.canagi-app[data-scene='arriving'] .entry-action {
+  animation: frame-in 480ms 740ms ease both;
+}
+
+.canagi-app[data-scene='arriving'] .scroll-hint {
+  animation: frame-in 480ms 800ms ease both;
+}
+
+@keyframes scroll-breathe {
+  0%, 100% { opacity: 0.85; transform: translateY(2px); }
+  50% { opacity: 1; transform: translateY(-3px); }
+}
+
+@keyframes arrow-home {
+  from { transform: translateX(0); }
+  to { transform: translateX(-3px); }
+}
+
+@keyframes intro-art-in {
+  from { opacity: 0; }
+  to { opacity: var(--intro-art-strength); }
+}
+
+@keyframes button-fill {
+  from { transform: scaleX(var(--entry-progress, 0)); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes arrow-enter {
+  from { transform: rotate(0); }
+  to { transform: rotate(-90deg); }
+}
+
+@keyframes button-exit {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes launch-exit {
+  0%, 30% { opacity: 1; transform: none; }
+  100% { opacity: 0; transform: translateY(-8px) scale(0.99); }
+}
+
+@keyframes character-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes character-in {
+  0% { opacity: 0; }
+  45% { opacity: 0.65; }
+  100% { opacity: 1; }
+}
+
+@keyframes artwork-exit {
+  from { opacity: var(--intro-art-strength); transform: none; }
+  to { opacity: 0; transform: scale(1.015); }
+}
+
+@keyframes artwork-in {
+  from { opacity: 0; }
+  to { opacity: var(--explorer-art-strength); }
+}
+
+@keyframes frame-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes frame-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+@keyframes tile-in {
+  0% { opacity: 0; }
+  45% { opacity: 0.82; }
+  100% { opacity: 1; }
+}
+
+@keyframes bar-across {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+
+@keyframes bar-up {
+  from { transform: scaleY(0); }
+  to { transform: scaleY(1); }
+}
+
+@media (max-width: 1240px) {
+  .metric-card { min-height: 7.8rem; }
+}
+
+@media (max-width: 900px) {
+  .intro-art { --intro-art-strength: 0.42; }
+  .explorer-art { --explorer-art-strength: 0.27; }
+  .explorer-heading { min-height: 22rem; padding-bottom: 2.2rem; }
+  .explorer-copy { width: min(44rem, 88%); }
+}
+
+@media (max-width: 620px) {
+  .intro-copy h1 { font-size: clamp(4rem, 20.5vw, 5.6rem); }
+  .intro-art { --intro-art-strength: 0.32; }
+  .explorer-stage { padding: 0.35rem 0.75rem 2rem; }
+  .explorer-heading { min-height: 28rem; margin-right: -0.75rem; margin-left: -0.75rem; padding-top: 3rem; }
+  .explorer-copy { width: 100%; }
+  .explorer-copy h2 { font-size: clamp(2rem, 9vw, 3rem); }
+  .metric-card { min-height: 8.8rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .canagi-app *,
+  .canagi-app *::before,
+  .canagi-app *::after {
+    animation: none !important;
+    transition: none !important;
   }
 }

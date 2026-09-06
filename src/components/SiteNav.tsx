@@ -3,17 +3,20 @@ import { Moon, Sun } from 'lucide-react'
 interface SiteNavProps {
   darkMode: boolean
   onThemeToggle: () => void
+  onExplore: () => void
+  onMethodology: () => void
+  disabled: boolean
 }
 
-export function SiteNav({ darkMode, onThemeToggle }: SiteNavProps) {
+export function SiteNav({ darkMode, onThemeToggle, onExplore, onMethodology, disabled }: SiteNavProps) {
   return (
-    <nav className="site-nav" aria-label="Primary navigation">
+    <nav className="site-nav" aria-label="Primary navigation" inert={disabled}>
       <a className="nav-wordmark" href="#top" aria-label="CANAGI home">
         CANAGI
       </a>
       <div className="nav-links">
-        <a href="#explore">Explore</a>
-        <a href="#methodology">Methodology</a>
+        <a href="#explore" onClick={(event) => { event.preventDefault(); onExplore() }}>Explore</a>
+        <a href="#methodology" onClick={(event) => { event.preventDefault(); onMethodology() }}>Methodology</a>
         <a href="https://github.com/ranbysal/CANAGI" target="_blank" rel="noreferrer">
           GitHub
         </a>

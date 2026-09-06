@@ -1,8 +1,10 @@
-import { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { hierarchy, treemap } from 'd3-hierarchy'
 import { ExternalLink } from 'lucide-react'
 import { exposureExplanation, layerColor, metricLabel } from '../lib/format'
 import type { Layer, Occupation } from '../types'
+import { tileEntryDelay } from '../lib/entrySequence'
+import { AnimatedText } from './AnimatedText'
 
 interface OccupationTreemapProps {
   data: Occupation[]
@@ -80,18 +82,36 @@ export function OccupationTreemap({ data, layer }: OccupationTreemapProps) {
           {leaves.map(({ leaf, occupation }) => {
             const tileWidth = Math.max(0, leaf.x1 - leaf.x0)
             const tileHeight = Math.max(0, leaf.y1 - leaf.y0)
-            const showLabel = tileWidth > 76 && tileHeight > 34
-            const showMetric = tileWidth > 96 && tileHeight > 55
+            const showLabel = tileWidth > 54 && tileHeight > 24
+            const showMetric = tileWidth > 82 && tileHeight > 46
+            const showWord = !showLabel && tileWidth > 22 && tileHeight > 12
+            const showInitial = !showLabel && !showWord && tileWidth > 6 && tileHeight > 7
+            const firstWord = occupation.title.split(/\s+/)[0]
+            const wordFontSize = Math.max(5, Math.min(8, tileHeight * 0.48))
+            const wordCapacity = Math.max(1, Math.floor((tileWidth - 6) / (wordFontSize * 0.62)))
+            const compactWord = firstWord.slice(0, wordCapacity)
+            const delay = tileEntryDelay(leaf.x0, leaf.y0, width, height)
             return (
               <a
+                className="treemap-cell"
                 href={nocUrl(occupation.noc_code)}
                 target="_blank"
                 rel="noreferrer"
                 aria-label={`${occupation.title}. ${metricLabel(layer, occupation)}. Open NOC profile.`}
                 key={occupation.noc_code}
-                onPointerEnter={(event) => {
+                style={{
+                  '--tile-delay': `${delay}ms`,
+                  '--text-delay': `${delay + 190}ms`,
+                  '--char-step': '14ms',
+                } as CSSProperties}
+                onPointerMove={(event) => {
+                  if (event.movementX === 0 && event.movementY === 0) return
                   const rect = containerRef.current?.getBoundingClientRect()
-                  if (rect) setHovered({ occupation, x: event.clientX - rect.left, y: event.clientY - rect.top })
+                  if (rect) {
+                    setHovered((current) => current?.occupation.noc_code === occupation.noc_code
+                      ? current
+                      : { occupation, x: event.clientX - rect.left, y: event.clientY - rect.top })
+                  }
                 }}
               >
                 <rect
@@ -103,12 +123,36 @@ export function OccupationTreemap({ data, layer }: OccupationTreemapProps) {
                   className="treemap-tile"
                 />
                 {showLabel && (
-                  <foreignObject x={leaf.x0 + 6} y={leaf.y0 + 5} width={Math.max(0, tileWidth - 12)} height={Math.max(0, tileHeight - 10)} pointerEvents="none">
-                    <div className="tile-label">
-                      <strong>{occupation.title}</strong>
-                      {showMetric && <span>{metricLabel(layer, occupation)}</span>}
+                  <foreignObject x={leaf.x0 + 4} y={leaf.y0 + 4} width={Math.max(0, tileWidth - 8)} height={Math.max(0, tileHeight - 8)} pointerEvents="none">
+                    <div className={`tile-label ${tileWidth < 78 || tileHeight < 38 ? 'tile-label--compact' : ''}`}>
+                      <strong><AnimatedText text={occupation.title} duration={220} limit={60} /></strong>
+                      {showMetric && <span><AnimatedText text={metricLabel(layer, occupation)} duration={180} /></span>}
                     </div>
                   </foreignObject>
+                )}
+                {showWord && (
+                  <text
+                    className="tile-word"
+                    x={leaf.x0 + 3}
+                    y={leaf.y0 + Math.min(tileHeight - 3, 10)}
+                    fontSize={wordFontSize}
+                    pointerEvents="none"
+                  >
+                    {Array.from(compactWord).map((letter, index) => <tspan className="animated-char" style={{ '--char-index': index } as CSSProperties} key={index}>{letter}</tspan>)}
+                  </text>
+                )}
+                {showInitial && (
+                  <text
+                    className="tile-initial"
+                    x={leaf.x0 + tileWidth / 2}
+                    y={leaf.y0 + tileHeight / 2}
+                    fontSize={Math.max(3.5, Math.min(7, tileWidth * 0.5, tileHeight * 0.62))}
+                    textAnchor="middle"
+                    dominantBaseline="central"
+                    pointerEvents="none"
+                  >
+                    <tspan className="animated-char" style={{ '--char-index': 0 } as CSSProperties}>{occupation.title.charAt(0)}</tspan>
+                  </text>
                 )}
               </a>
             )
@@ -136,7 +180,7 @@ export function OccupationTreemap({ data, layer }: OccupationTreemapProps) {
           </div>
         )}
       </div>
-      <figcaption>Tile area represents employment. Select any occupation to open its official NOC profile.</figcaption>
+      <figcaption><AnimatedText text="Tile area represents employment. Select any occupation to open its official NOC profile." delay={1800} duration={400} /></figcaption>
     </figure>
   )
 }
