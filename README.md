@@ -19,20 +19,3 @@ The visualizer covers 515 occupations and more than 20 million jobs. Each tile i
 Employment and wage figures are derived from Open Canada data for 2023–2025. Labour outlook figures come from the Canadian Occupational Projection System for 2024–2033. Education requirements follow NOC 2021 TEER categories.
 
 Digital AI Exposure is an estimate of how much an occupation's tasks may interact with current AI capabilities. It is not a forecast of layoffs or job elimination. Adoption, demand, regulation, and human preferences are not captured by a single exposure score.
-
-## Run locally
-
-```bash
-npm install
-npm run dev
-```
-
-Create a production build with:
-
-```bash
-npm run build
-```
-
-## Stack
-
-React, TypeScript, Vite, D3 hierarchy, and Vercel.
