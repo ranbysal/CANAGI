@@ -15,7 +15,7 @@ function DistributionChart({ card }: { card: MetricCardData }) {
       {card.chart?.map((item) => (
         <div className="distribution-column" key={item.label} title={`${item.label}: ${item.display}`}>
           <span className="distribution-value"><AnimatedText text={item.display} duration={180} /></span>
-          <i style={{ height: `${Math.max(4, (item.value / max) * 48)}px`, background: item.color }} />
+          <i style={{ height: `${(item.value / max) * 48}px`, background: item.color }} />
           <span className="distribution-label"><AnimatedText text={item.label} duration={230} /></span>
         </div>
       ))}
@@ -43,7 +43,7 @@ function MetricCard({ card, index }: { card: MetricCardData; index: number }) {
               </span>
               {row.bar != null && (
                 <span className="metric-row-bar" aria-hidden="true">
-                  <i style={{ width: `${Math.max(3, row.bar)}%`, background: row.color }} />
+                  <i style={{ width: `${row.bar}%`, background: row.color }} />
                 </span>
               )}
               <strong><AnimatedText text={row.value} duration={180} /></strong>
@@ -59,7 +59,7 @@ function MetricCard({ card, index }: { card: MetricCardData; index: number }) {
 export function StatsGrid({ layer, data }: StatsGridProps) {
   const cards = useMemo(() => getMetricCards(layer, data), [layer, data])
   return (
-    <div className="stats-grid" aria-live="polite">
+    <div className="stats-grid" aria-label="Summary of matching occupations">
       {cards.map((card, index) => <MetricCard card={card} index={index} key={card.title} />)}
     </div>
   )

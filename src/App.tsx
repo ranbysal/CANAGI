@@ -1,19 +1,25 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { ArrowLeft } from 'lucide-react'
 import { Explorer } from './components/Explorer'
 import { Intro } from './components/Intro'
 import { SiteNav } from './components/SiteNav'
 import { createEntrySequence, type EntryScene } from './lib/entrySequence'
 import { useScrollEntry } from './lib/useScrollEntry'
+import { pageAddress, pageFromLocation, type ContentPage, type SitePage } from './lib/contentPages'
+
+function writePage(page: SitePage, push = true) {
+  const { canagiOverlay: _overlay, ...state } = window.history.state ?? {}
+  window.history[push ? 'pushState' : 'replaceState'](state, '', pageAddress(page, window.location.pathname, window.location.search))
+}
 
 export default function App() {
   const [darkMode, setDarkMode] = useState(() => window.localStorage.getItem('canagi-theme') === 'dark')
-  const [scene, setScene] = useState<EntryScene>(() => ['#explore', '#methodology'].includes(window.location.hash) ? 'explorer' : 'intro')
+  const [initialPage] = useState(() => pageFromLocation(window.location.hash, window.location.search))
+  const [page, setPage] = useState<ContentPage>(initialPage === 'home' ? 'overview' : initialPage)
+  const [scene, setScene] = useState<EntryScene>(initialPage === 'home' ? 'intro' : 'explorer')
   const appRef = useRef<HTMLElement>(null)
   const initialScene = useRef(scene)
   const previousScene = useRef(scene)
   const sequenceRef = useRef<ReturnType<typeof createEntrySequence> | null>(null)
-  const destinationRef = useRef<'explore' | 'methodology'>(window.location.hash === '#methodology' ? 'methodology' : 'explore')
   const running = scene !== 'intro' && scene !== 'explorer'
   const returning = scene === 'returning' || scene === 'arriving'
 
@@ -31,12 +37,24 @@ export default function App() {
       if (reducedMotion.matches) sequence.finish()
     }
     reducedMotion.addEventListener('change', onMotionChange)
+    const onNavigation = () => {
+      const destination = pageFromLocation(window.location.hash, window.location.search)
+      sequence.finish()
+      if (destination === 'home') sequence.home(true)
+      else { setPage(destination); sequence.start(true) }
+    }
+    window.addEventListener('popstate', onNavigation)
+    window.addEventListener('hashchange', onNavigation)
     return () => {
       sequence.dispose()
       sequenceRef.current = null
       reducedMotion.removeEventListener('change', onMotionChange)
+      window.removeEventListener('popstate', onNavigation)
+      window.removeEventListener('hashchange', onNavigation)
     }
   }, [])
+
+  useLayoutEffect(() => { writePage(initialPage, false) }, [initialPage])
 
   useLayoutEffect(() => {
     if (!running) return
@@ -63,26 +81,36 @@ export default function App() {
     if (scene === 'arriving' || scene === 'intro') appRef.current?.style.setProperty('--entry-progress', '0')
     if (scene === 'intro' && previousScene.current !== 'intro') {
       window.scrollTo({ top: 0, behavior: 'instant' })
-      window.history.replaceState(window.history.state, '', `${window.location.pathname}${window.location.search}`)
       document.getElementById('intro-title')?.focus({ preventScroll: true })
     }
     if (scene === 'explorer') {
-      const target = document.getElementById(destinationRef.current === 'methodology' ? 'methodology' : 'explorer-title')
+      const target = document.getElementById(page === 'overview' ? 'explorer-title' : page === 'careers' ? 'career-page-title' : 'field-comparison-title')
       window.scrollTo({ top: 0, behavior: 'instant' })
-      if (destinationRef.current === 'methodology') target?.scrollIntoView({ behavior: 'instant', block: 'start' })
       target?.focus({ preventScroll: true })
     }
     previousScene.current = scene
-  }, [scene])
+  }, [scene, page])
 
-  const enter = useCallback((destination: 'explore' | 'methodology' = 'explore') => {
-    destinationRef.current = destination
-    sequenceRef.current?.start(window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+  useEffect(() => {
+    document.title = scene === 'intro' ? "CANAGI | Canada's AI Job Economy" : `${page === 'overview' ? 'Canadian Job Market Visualizer' : page === 'careers' ? 'The Career Explorer' : 'Compare career fields'} | CANAGI`
+  }, [scene, page])
+
+  const enter = useCallback((destination: ContentPage = 'overview') => {
+    if (sequenceRef.current?.start(window.matchMedia('(prefers-reduced-motion: reduce)').matches)) {
+      setPage(destination)
+      writePage(destination)
+    }
   }, [])
 
   const home = useCallback(() => {
-    sequenceRef.current?.home(window.matchMedia('(prefers-reduced-motion: reduce)').matches)
+    if (sequenceRef.current?.home(window.matchMedia('(prefers-reduced-motion: reduce)').matches)) writePage('home')
   }, [])
+
+  const navigate = useCallback((destination: ContentPage) => {
+    if (destination === page) return
+    setPage(destination)
+    writePage(destination)
+  }, [page])
 
   const setEntryProgress = useCallback((progress: number) => {
     appRef.current?.style.setProperty('--entry-progress', String(progress))
@@ -92,15 +120,11 @@ export default function App() {
 
   return (
     <main className="canagi-app" data-scene={scene} ref={appRef}>
-      <SiteNav darkMode={darkMode} onThemeToggle={() => setDarkMode((value) => !value)} onExplore={() => enter()} onMethodology={() => enter('methodology')} disabled={scene !== 'intro'} />
+      <SiteNav darkMode={darkMode} onThemeToggle={() => setDarkMode((value) => !value)} onNavigate={enter} disabled={scene !== 'intro'} />
       <div className="launch-scene" inert={scene !== 'intro'} aria-hidden={scene === 'entering' || scene === 'explorer' || scene === 'returning'}>
         <Intro onEnter={() => enter()} busy={running} />
       </div>
-      <Explorer interactive={scene === 'explorer'} hidden={scene === 'intro' || scene === 'leaving' || scene === 'arriving'} />
-      <button className="enter-button home-button" type="button" onClick={home} disabled={scene !== 'explorer'} aria-busy={scene === 'returning'} aria-label="Home, return to launch screen">
-        <ArrowLeft size={16} aria-hidden="true" />
-        <span>HOME</span>
-      </button>
+      <Explorer interactive={scene === 'explorer'} hidden={scene === 'intro' || scene === 'leaving' || scene === 'arriving'} page={page} onNavigate={navigate} onHome={home} darkMode={darkMode} onThemeToggle={() => setDarkMode(value => !value)} />
       <p className="sr-only" role="status">{returning ? 'Returning home.' : running ? 'Opening the job market.' : scene === 'explorer' ? 'Job market ready.' : 'Launch page ready.'}</p>
     </main>
   )

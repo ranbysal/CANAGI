@@ -1,14 +1,18 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from 'react'
 import { hierarchy, treemap } from 'd3-hierarchy'
-import { ExternalLink } from 'lucide-react'
-import { exposureExplanation, layerColor, metricLabel } from '../lib/format'
+import { ArrowUpRight } from 'lucide-react'
+import { createPortal } from 'react-dom'
+import { placeTooltip, type Rectangle } from '../lib/tooltipPlacement'
+import { exposureExplanation, layerColor, metricLabel, tileTextColor } from '../lib/format'
 import type { Layer, Occupation } from '../types'
 import { tileEntryDelay } from '../lib/entrySequence'
 import { AnimatedText } from './AnimatedText'
+import { employmentValue, outlookOf, publishedWage } from '../lib/careers'
 
 interface OccupationTreemapProps {
   data: Occupation[]
   layer: Layer
+  onSelect: (id: string) => void
 }
 
 interface CategoryDatum {
@@ -27,25 +31,41 @@ interface HoverState {
   occupation: Occupation
   x: number
   y: number
+  tile: Rectangle
 }
 
 function isOccupation(value: TreeDatum): value is Occupation {
   return 'noc_code' in value
 }
 
-function nocUrl(code: string) {
-  return `https://noc.esdc.gc.ca/Structure/NOCProfile?GocTemplateCulture=en-CA&code=${code}&version=2021.0`
-}
-
-export function OccupationTreemap({ data, layer }: OccupationTreemapProps) {
+export function OccupationTreemap({ data, layer, onSelect }: OccupationTreemapProps) {
   const containerRef = useRef<HTMLDivElement>(null)
+  const tooltipRef = useRef<HTMLDivElement>(null)
+  const [tooltipSize, setTooltipSize] = useState({ width: 320, height: 240 })
   const [width, setWidth] = useState(1200)
   const [hovered, setHovered] = useState<HoverState | null>(null)
   const height = width < 680 ? 820 : Math.max(610, Math.min(760, width * 0.54))
 
   useLayoutEffect(() => {
+    if (!hovered || !tooltipRef.current) return
+    const measure = () => {
+      const rect = tooltipRef.current?.getBoundingClientRect()
+      if (rect) setTooltipSize(current => current.width === rect.width && current.height === rect.height ? current : { width: rect.width, height: rect.height })
+    }
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(tooltipRef.current)
+    const dismiss = () => setHovered(null)
+    const onKey = (event: KeyboardEvent) => { if (event.key === 'Escape') dismiss() }
+    window.addEventListener('scroll', dismiss, true)
+    window.addEventListener('resize', dismiss)
+    window.addEventListener('keydown', onKey)
+    return () => { observer.disconnect(); window.removeEventListener('scroll', dismiss, true); window.removeEventListener('resize', dismiss); window.removeEventListener('keydown', onKey) }
+  }, [hovered?.occupation.noc_code])
+
+  useLayoutEffect(() => {
     if (!containerRef.current) return
-    const observer = new ResizeObserver(([entry]) => setWidth(Math.max(320, entry.contentRect.width)))
+    const observer = new ResizeObserver(([entry]) => setWidth(Math.max(1, entry.contentRect.width)))
     observer.observe(containerRef.current)
     return () => observer.disconnect()
   }, [])
@@ -78,7 +98,7 @@ export function OccupationTreemap({ data, layer }: OccupationTreemapProps) {
   return (
     <figure className="treemap-figure">
       <div className="treemap-shell" ref={containerRef} onPointerLeave={() => setHovered(null)}>
-        <svg className="treemap" viewBox={`0 0 ${width} ${height}`} role="img" aria-label={`Treemap of Canadian occupations colored by ${layer}`}>
+        <svg className="treemap" viewBox={`0 0 ${width} ${height}`} role="group" aria-label={`Treemap of ${leaves.length} matching occupations coloured by ${layer}`}>
           {leaves.map(({ leaf, occupation }) => {
             const tileWidth = Math.max(0, leaf.x1 - leaf.x0)
             const tileHeight = Math.max(0, leaf.y1 - leaf.y0)
@@ -94,25 +114,23 @@ export function OccupationTreemap({ data, layer }: OccupationTreemapProps) {
             return (
               <a
                 className="treemap-cell"
-                href={nocUrl(occupation.noc_code)}
-                target="_blank"
-                rel="noreferrer"
-                aria-label={`${occupation.title}. ${metricLabel(layer, occupation)}. Open NOC profile.`}
+                href={`?career=${occupation.noc_code}#explore`}
+                onClick={(event) => { event.preventDefault(); event.currentTarget.focus({ preventScroll: true }); setHovered(null); onSelect(occupation.noc_code) }}
+                aria-label={`${occupation.title}. ${metricLabel(layer, occupation)}. View career details.`}
                 key={occupation.noc_code}
                 style={{
                   '--tile-delay': `${delay}ms`,
                   '--text-delay': `${delay + 190}ms`,
                   '--char-step': '14ms',
+                  '--tile-ink': tileTextColor(layerColor(layer, occupation)),
                 } as CSSProperties}
                 onPointerMove={(event) => {
-                  if (event.movementX === 0 && event.movementY === 0) return
-                  const rect = containerRef.current?.getBoundingClientRect()
-                  if (rect) {
-                    setHovered((current) => current?.occupation.noc_code === occupation.noc_code
-                      ? current
-                      : { occupation, x: event.clientX - rect.left, y: event.clientY - rect.top })
-                  }
+                  if (event.pointerType === 'touch') return
+                  const rect = event.currentTarget.getBoundingClientRect()
+                  setHovered({ occupation, x: event.clientX, y: event.clientY, tile: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } })
                 }}
+                onFocus={event => { const rect = event.currentTarget.getBoundingClientRect(); setHovered({ occupation, x: rect.left + rect.width / 2, y: rect.top + rect.height / 2, tile: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } }) }}
+                onBlur={() => setHovered(null)}
               >
                 <rect
                   x={leaf.x0}
@@ -158,29 +176,27 @@ export function OccupationTreemap({ data, layer }: OccupationTreemapProps) {
             )
           })}
         </svg>
-        {hovered && (
+        {hovered && createPortal(
           <div
+            ref={tooltipRef}
             className="treemap-tooltip"
-            role="status"
-            style={{
-              left: Math.min(Math.max(8, hovered.x + 16), Math.max(8, width - 330)),
-              top: Math.min(Math.max(8, hovered.y + 16), height - 210),
-            }}
+            role="tooltip"
+            style={placeTooltip(hovered, hovered.tile, tooltipSize, { width: document.documentElement.clientWidth, height: window.innerHeight })}
           >
             <p className="tooltip-code">NOC {hovered.occupation.noc_code}</p>
             <h3>{hovered.occupation.title}</h3>
             <dl>
-              <div><dt>Jobs</dt><dd>{(hovered.occupation.jobs ?? 0).toLocaleString('en-CA')}</dd></div>
-              <div><dt>Median pay</dt><dd>{hovered.occupation.pay ? `$${hovered.occupation.pay.toLocaleString('en-CA')}` : 'N/A'}</dd></div>
-              <div><dt>Outlook</dt><dd>{hovered.occupation.outlook == null ? 'N/A' : `${hovered.occupation.outlook > 0 ? '+' : ''}${hovered.occupation.outlook}%`}</dd></div>
-              <div><dt>AI exposure</dt><dd>{hovered.occupation.exposure ?? 'N/A'}/10</dd></div>
+              <div><dt>Employment · 2023</dt><dd>{employmentValue(hovered.occupation.jobs)}</dd></div>
+              <div><dt>Published median wage</dt><dd>{publishedWage(hovered.occupation)}</dd></div>
+              <div><dt>2024 to 2033</dt><dd>{outlookOf(hovered.occupation).label}</dd></div>
+              <div><dt>Relative AI index</dt><dd>{hovered.occupation.exposure ?? 'N/A'}/10</dd></div>
             </dl>
             <p className="tooltip-rationale">{exposureExplanation(hovered.occupation)}</p>
-            <span className="tooltip-link">Open official profile <ExternalLink size={12} /></span>
-          </div>
+            <span className="tooltip-link">View career details <ArrowUpRight size={12} /></span>
+          </div>, document.body
         )}
       </div>
-      <figcaption><AnimatedText text="Tile area represents employment. Select any occupation to open its official NOC profile." delay={1800} duration={400} /></figcaption>
+      <figcaption><AnimatedText text={`Tile area represents covered 2023 employment, not vacancies. ${leaves.length} matching occupations shown. Select a tile for career details; Career Explorer's List includes every occupation.`} delay={1800} duration={400} /></figcaption>
     </figure>
   )
 }
