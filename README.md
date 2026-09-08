@@ -1,5 +1,7 @@
 # CANAGI
 
+This branch documents the current research preview. The production application has not been updated.
+
 CANAGI is an interactive view of how employment, wages, education requirements, labour demand, and AI task exposure intersect across Canada's job market.
 
 The explorer covers all 516 NOC occupations. The visualizer sizes 485 occupations by their published employment, covering more than 20 million jobs, then recolours them as the selected data layer changes.
