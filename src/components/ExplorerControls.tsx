@@ -1,3 +1,4 @@
+import { TermHelp } from './TermHelp'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Check, ChevronDown, List, Search, SlidersHorizontal, SquareChartGantt, X } from 'lucide-react'
 import { emptyFilters, FIELD_DEFINITIONS, OUTLOOK_DEFINITIONS, PRESETS, TEER_DEFINITIONS, type CareerFilters, type ExplorerState } from '../lib/careers'
@@ -56,26 +57,27 @@ export function ExplorerControls({ state, onChange, count, total, onMethodology 
   return <div className="explorer-controls" id="career-controls">
       <div className="search-view-row">
         <label className="career-search"><Search size={19} aria-hidden="true" /><span className="sr-only">Search occupations, NOC codes or common titles</span><input type="search" value={state.query} onChange={e => filter({ query: e.target.value.slice(0, 120) })} placeholder="Search a career or NOC" maxLength={120} />{state.query && <button type="button" aria-label="Clear search" onClick={() => filter({ query: '' })}><X size={16} /></button>}</label>
+        <TermHelp term="noc" />
         <div className="view-toggle" role="group" aria-label="Explorer view"><button type="button" aria-pressed={state.view === 'treemap'} onClick={() => onChange({ view: 'treemap' })}><SquareChartGantt size={16} />Treemap</button><button type="button" aria-pressed={state.view === 'list'} onClick={() => onChange({ view: 'list' })}><List size={17} />List</button></div>
         <button ref={toggleRef} type="button" className="mobile-filter-toggle" aria-expanded={expanded} aria-controls="filter-panel" onClick={() => setExpanded(!expanded)}><SlidersHorizontal size={16} />Filters{chips.length > 0 && <span>{chips.length}</span>}</button>
       </div>
       <div ref={panelRef} id="filter-panel" className={`filter-panel ${expanded ? 'is-expanded' : ''}`}>
         <div className="filter-menus">
           <FilterMenu title="Annualized pay" count={Number(state.payMin != null) + Number(state.payMax != null)}>
-            <p className="filter-help">Job Bank median wages, annualized at 2,080 hours where hourly. Published annual figures stay annual.</p>
+            <p className="filter-help"><TermHelp term="pay" /> Job Bank median wages, annualized at 2,080 hours where hourly. Published annual figures stay annual.</p>
             <div className="range-inputs"><label>Minimum ($)<input type="number" inputMode="numeric" min="0" max="1000000" step="1000" placeholder="Any" value={state.payMin ?? ''} onChange={e => number('payMin', e.target.value)} /></label><span>to</span><label>Maximum ($)<input type="number" inputMode="numeric" min="0" max="1000000" step="1000" placeholder="Any" value={state.payMax ?? ''} onChange={e => number('payMax', e.target.value)} /></label></div>
             <button type="button" className="text-button" onClick={onMethodology}>Sources & conversion</button>
           </FilterMenu>
           <FilterMenu title="Education & training" count={state.teer.length}>
-            <fieldset><legend>Pathway categories (TEER)</legend>{TEER_DEFINITIONS.map(t => <label className="filter-option" key={t.id}><input type="checkbox" checked={state.teer.includes(t.id)} onChange={() => toggle('teer', t.id)} /><span><b>TEER {t.id}</b> {t.label}</span></label>)}</fieldset><p className="filter-help">Categories include experience and responsibility. They are not years of school or a guarantee you qualify.</p>
+            <fieldset><legend>Pathway categories (TEER)<TermHelp term="teer" /></legend>{TEER_DEFINITIONS.map(t => <label className="filter-option" key={t.id}><input type="checkbox" checked={state.teer.includes(t.id)} onChange={() => toggle('teer', t.id)} /><span><b>TEER {t.id}</b> {t.label}</span></label>)}</fieldset><p className="filter-help">Categories include experience and responsibility. They are not years of school or a guarantee you qualify.</p>
           </FilterMenu>
           <FilterMenu title="AI exposure" count={Number(state.aiMin != null) + Number(state.aiMax != null)}>
-            <p className="filter-help">Relative exposure index, 0 to 10. Experimental OaSIS based ranking, not a percentage of jobs at risk.</p>
+            <p className="filter-help"><TermHelp term="exposure" /> Relative exposure index, 0 to 10. Experimental OaSIS based ranking, not a percentage of jobs at risk.</p>
             <div className="range-inputs"><label>Minimum exposure<input type="number" inputMode="decimal" min="0" max="10" step="0.1" placeholder="0" value={state.aiMin ?? ''} onChange={e => number('aiMin', e.target.value)} /></label><span>to</span><label>Maximum exposure<input type="number" inputMode="decimal" min="0" max="10" step="0.1" placeholder="10" value={state.aiMax ?? ''} onChange={e => number('aiMax', e.target.value)} /></label></div>
             <div className="quick-bands">{[[0, 3.9], [4, 6.9], [7, 10]].map(([min, max]) => <button type="button" key={min} onClick={() => filter({ aiMin: min, aiMax: max })}>{min} to {max}</button>)}</div>
           </FilterMenu>
           <FilterMenu title="Projected outlook" count={state.outlook.length}>
-            <fieldset><legend>COPS · 2024 to 2033</legend>{OUTLOOK_DEFINITIONS.map(o => <label className="filter-option" key={o.id}><input type="checkbox" checked={state.outlook.includes(o.id)} onChange={() => toggle('outlook', o.id)} /><span>{o.label}</span></label>)}</fieldset><p className="filter-help">Long term labour market balance, not current vacancies or a growth percentage.</p>
+            <fieldset><legend>COPS · 2024 to 2033<TermHelp term="outlook" /></legend>{OUTLOOK_DEFINITIONS.map(o => <label className="filter-option" key={o.id}><input type="checkbox" checked={state.outlook.includes(o.id)} onChange={() => toggle('outlook', o.id)} /><span>{o.label}</span></label>)}</fieldset><p className="filter-help">Long term labour market balance, not current vacancies or a growth percentage.</p>
           </FilterMenu>
           <FilterMenu title="Career field" count={state.fields.length}>
             <fieldset><legend>NOC 2021 broad occupation groups</legend>{FIELD_DEFINITIONS.map(([id, label, full]) => <label className="filter-option" title={full} key={id}><input type="checkbox" checked={state.fields.includes(id)} onChange={() => toggle('fields', id)} /><span>{label}</span></label>)}</fieldset><p className="filter-help">Occupation families, not economic industries.</p>

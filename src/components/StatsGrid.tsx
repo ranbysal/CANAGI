@@ -1,3 +1,4 @@
+import { TermHelp, type HelpTerm } from './TermHelp'
 import { useMemo, type CSSProperties } from 'react'
 import { getMetricCards } from '../lib/metrics'
 import type { Layer, MetricCardData, Occupation } from '../types'
@@ -23,13 +24,13 @@ function DistributionChart({ card }: { card: MetricCardData }) {
   )
 }
 
-function MetricCard({ card, index }: { card: MetricCardData; index: number }) {
+function MetricCard({ card, index, help }: { card: MetricCardData; index: number; help?: HelpTerm }) {
   return (
     <article
       className={`metric-card ${card.rows ? 'with-rows' : ''}`}
       style={{ '--metric-index': index } as CSSProperties}
     >
-      <h3><AnimatedText text={card.title} duration={210} /></h3>
+      <h3><AnimatedText text={card.title} duration={210} />{help && <TermHelp term={help} />}</h3>
       {card.value && <p className="metric-value" style={{ color: card.accent }}><AnimatedText text={card.value} duration={190} /></p>}
       {card.note && <p className="metric-note"><AnimatedText text={card.note} duration={340} /></p>}
       {card.chart && <DistributionChart card={card} />}
@@ -58,9 +59,15 @@ function MetricCard({ card, index }: { card: MetricCardData; index: number }) {
 
 export function StatsGrid({ layer, data }: StatsGridProps) {
   const cards = useMemo(() => getMetricCards(layer, data), [layer, data])
+  const explained = new Set<HelpTerm>()
   return (
     <div className="stats-grid" aria-label="Summary of matching occupations">
-      {cards.map((card, index) => <MetricCard card={card} index={index} key={card.title} />)}
+      {cards.map((card, index) => {
+        const term: HelpTerm | undefined = /TEER|Pathway/.test(card.title) ? 'teer' : /pay/i.test(card.title) ? 'pay' : /exposure/i.test(card.title) ? 'exposure' : /Outlook/.test(card.title) ? 'outlook' : undefined
+        const help = term && !explained.has(term) ? term : undefined
+        if (term) explained.add(term)
+        return <MetricCard card={card} index={index} key={card.title} help={help} />
+      })}
     </div>
   )
 }

@@ -3,7 +3,8 @@ import { EXPOSURE_NOTE, outlookOf, teerOf } from './careers'
 
 // Continuous teal-to-rose scale using the supplied mint and pink shades.
 export const MAP_PALETTE = ['#04cbb8', '#acf3e4', '#fddde3', '#fdb6c5', '#e3066a']
-export const TEER_COLORS = ['#04cbb8', '#acf3e4', '#fddde3', '#fdb6c5', '#fe7298', '#e3066a']
+export const PAY_COLORS = [...MAP_PALETTE].reverse()
+export const TEER_COLORS = ['#e3066a', '#fe7298', '#fdb6c5', '#fddde3', '#acf3e4', '#04cbb8']
 export const OUTLOOK_COLORS = [MAP_PALETTE[4], MAP_PALETTE[3], MAP_PALETTE[2], MAP_PALETTE[1], MAP_PALETTE[0]]
 export const UNKNOWN_COLOR = '#c4c1c8'
 export const PAY_TIERS = [
@@ -45,7 +46,7 @@ export function layerColor(layer: Layer, item: Occupation) {
   if (layer === 'education') return TEER_COLORS[Number(teerOf(item)?.id)] ?? UNKNOWN_COLOR
   if (layer === 'outlook') return outlookColor(item)
   if (layer === 'exposure') return item.exposure == null ? UNKNOWN_COLOR : paletteColor(item.exposure / 10)
-  return item.pay == null ? UNKNOWN_COLOR : paletteColor((item.pay - 25000) / 125000)
+  return item.pay == null ? UNKNOWN_COLOR : paletteColor(1 - (item.pay - 25000) / 125000)
 }
 export function metricLabel(layer: Layer, item: Occupation) {
   if (layer === 'exposure') return item.exposure == null ? 'Exposure not available' : `${item.exposure}/10 relative exposure`

@@ -44,9 +44,8 @@ export function Explorer({ interactive, hidden, page, onNavigate, onHome, darkMo
   const visibleData = overview ? data : matching
   const sizedCount = visibleData.filter(d => d.jobs != null && d.jobs > 0).length
   const openDetail = useCallback((id: string) => {
-    if (page === 'overview') onNavigate('careers')
     update({ detail: id, comparison: false }, true)
-  }, [update, page, onNavigate])
+  }, [update])
   const showMethodology = useCallback(() => setMethodology(true), [])
 
   useEffect(() => {

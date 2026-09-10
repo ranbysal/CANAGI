@@ -1,6 +1,6 @@
 import type { Layer, MetricCardData, MetricRow, Occupation } from '../types'
 import { aggregateField, isKnown, OUTLOOK_DEFINITIONS, outlookOf, TEER_DEFINITIONS, teerOf } from './careers'
-import { EXPOSURE_TIERS, formatCompact, formatPay, MAP_PALETTE, OUTLOOK_COLORS, PAY_TIERS, TEER_COLORS } from './format'
+import { EXPOSURE_TIERS, formatCompact, formatPay, MAP_PALETTE, PAY_COLORS, OUTLOOK_COLORS, PAY_TIERS, TEER_COLORS } from './format'
 
 const colors = MAP_PALETTE
 const percent = (n: number, total: number) => total > 0 ? `${Math.round(n / total * 100)}%` : 'N/A'
@@ -14,7 +14,7 @@ function bins(data: Occupation[], field: 'pay' | 'exposure'): MetricRow[] {
   const tiers = field === 'pay' ? PAY_TIERS : EXPOSURE_TIERS
   return tiers.map((t, i) => {
     const jobs = data.filter(d => isKnown(d[field]) && d[field]! >= t.min && d[field]! < t.max).reduce((s, d) => s + (d.jobs ?? 0), 0)
-    return { label: t.label, value: known.length ? formatCompact(jobs) : 'N/A', share: percent(jobs, total), bar: total ? jobs / total * 100 : 0, color: colors[i] }
+    return { label: t.label, value: known.length ? formatCompact(jobs) : 'N/A', share: percent(jobs, total), bar: total ? jobs / total * 100 : 0, color: (field === 'pay' ? PAY_COLORS : colors)[i] }
   })
 }
 export function getMetricCards(layer: Layer, data: Occupation[]): MetricCardData[] {

@@ -100,3 +100,14 @@
 @media (prefers-reduced-motion: reduce) {
   .canagi-app [data-motion], .canagi-app [data-motion] *, .canagi-app[data-scene='entering'] .occupation-row { animation: none !important; }
 }
+
+/* Match the research heading face while retaining the launch scale. */
+.intro-copy h1 { font-family: 'PT Serif', Georgia, serif; font-weight: 700; letter-spacing: -.035em; }
+.term-help { display: inline-block; margin-left: .4rem; vertical-align: middle; }
+.term-help-button { display: inline-flex; align-items: center; justify-content: center; width: 1.2rem; height: 1.2rem; padding: 0; border: 1px solid currentColor; border-radius: 50%; background: transparent; color: var(--muted); font: italic 13px Georgia, serif; cursor: pointer; }
+.term-help-button:hover { color: var(--blue); }
+.term-help-button:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.term-definition { font: 400 1rem/1.65 Arial, sans-serif; }
+.term-definition dl { display: grid; grid-template-columns: 4rem 1fr; gap: .8rem 1rem; }
+.term-definition dt { font-weight: 700; }
+.term-definition dd { margin: 0; }
