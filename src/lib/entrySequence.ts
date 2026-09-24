@@ -1,8 +1,11 @@
 export type EntryScene = 'intro' | 'leaving' | 'entering' | 'explorer' | 'returning' | 'arriving'
 
-export const EXIT_DURATION_MS = 1250
-export const ENTER_DURATION_MS = 2600
-export const HOME_DURATION_MS = 1400
+// The launch formation flattens into the field mosaic, which covers the swap.
+export const EXIT_DURATION_MS = 1400
+// The mosaic folds away while the visualizer rises in behind it.
+export const ENTER_DURATION_MS = 2400
+// Home reopens the mosaic and the formation flies back to the launch page.
+export const HOME_DURATION_MS = 2000
 
 interface SequenceClock {
   set: (callback: () => void, delay: number) => number
@@ -58,7 +61,12 @@ export function createEntrySequence(
   }
 }
 
-/** Leading edges define one left-to-right wave across the whole map. */
+/** Position along one diagonal wave across the map, from 0 (top left) to 1. */
+export function tileSweep(x: number, y: number, width: number, height: number) {
+  return Math.min(1, (x / Math.max(1, width)) * 0.72 + (y / Math.max(1, height)) * 0.28)
+}
+
+/** Tiles unfold in that wave once the map is revealed. */
 export function tileEntryDelay(x: number, y: number, width: number, height: number) {
-  return Math.round(680 + (x / Math.max(1, width)) * 950 + (y / Math.max(1, height)) * 85)
+  return Math.round(80 + tileSweep(x, y, width, height) * 950)
 }

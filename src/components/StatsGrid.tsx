@@ -3,6 +3,7 @@ import { useMemo, type CSSProperties } from 'react'
 import { getMetricCards } from '../lib/metrics'
 import type { Layer, MetricCardData, Occupation } from '../types'
 import { AnimatedText } from './AnimatedText'
+import { CountUp } from './CountUp'
 
 interface StatsGridProps {
   layer: Layer
@@ -31,7 +32,7 @@ function MetricCard({ card, index, help }: { card: MetricCardData; index: number
       style={{ '--metric-index': index } as CSSProperties}
     >
       <h3><AnimatedText text={card.title} duration={210} />{help && <TermHelp term={help} />}</h3>
-      {card.value && <p className="metric-value" style={{ color: card.accent }}><AnimatedText text={card.value} duration={190} /></p>}
+      {card.value && <p className="metric-value" style={{ color: card.accent }}><CountUp value={card.value} delay={260 + index * 80} /></p>}
       {card.note && <p className="metric-note"><AnimatedText text={card.note} duration={340} /></p>}
       {card.chart && <DistributionChart card={card} />}
       {card.rows && (

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { ENTER_DURATION_MS, EXIT_DURATION_MS } from './entrySequence'
 
 export type SurfacePhase = 'idle' | 'out' | 'in'
+// Moving between pages is quicker than arriving from the launch page.
+export const SURFACE_EXIT_MS = 420
+export const SURFACE_ENTER_MS = 1300
 /** A completed exit always precedes the content swap and the existing entry wave. */
 export function createSurfaceTransition(onPhase: (phase: SurfacePhase) => void, clock = { set: (fn: () => void, delay: number) => window.setTimeout(fn, delay), clear: (id: number) => window.clearTimeout(id) }) {
   let timer: number | undefined, phase: SurfacePhase = 'idle', commit: (() => void) | undefined
@@ -13,7 +15,7 @@ export function createSurfaceTransition(onPhase: (phase: SurfacePhase) => void, 
       if (phase !== 'idle') return false
       if (instant) { action(); return true }
       commit = action; set('out')
-      timer = clock.set(() => { const pending = commit; commit = undefined; pending?.(); set('in'); timer = clock.set(() => { timer = undefined; set('idle') }, ENTER_DURATION_MS) }, EXIT_DURATION_MS)
+      timer = clock.set(() => { const pending = commit; commit = undefined; pending?.(); set('in'); timer = clock.set(() => { timer = undefined; set('idle') }, SURFACE_ENTER_MS) }, SURFACE_EXIT_MS)
       return true
     },
     finish,

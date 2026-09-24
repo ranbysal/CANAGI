@@ -1,0 +1,448 @@
+/*
+ * CANAGI motion layer. Loaded last: the launch stage, scene choreography,
+ * page transitions and interface details. Durations match src/lib timings.
+ */
+:root {
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-soft: cubic-bezier(.25, 1, .5, 1);
+  --ease-in: cubic-bezier(.5, 0, .75, 0);
+  --ease-in-out: cubic-bezier(.65, 0, .35, 1);
+  --display-face: 'Fraunces Variable', 'PT Serif', Georgia, serif;
+  --mono-face: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.canagi-app { --scene-offset: 0ms; }
+.canagi-app[data-scene='entering'] { --scene-offset: 300ms; }
+.canagi-app[data-scene='arriving'] { --scene-offset: 880ms; }
+
+::selection { background: color-mix(in srgb, var(--brand-purple) 24%, transparent); }
+::view-transition-old(root), ::view-transition-new(root) { animation: none; mix-blend-mode: normal; }
+::view-transition-new(root) { z-index: 2; }
+
+/* Masked word reveals: each word rises from behind its own baseline. */
+.reveal-mask { display: inline-block; overflow: hidden; vertical-align: top; padding-bottom: .12em; margin-bottom: -.12em; }
+.reveal-word { display: inline-block; will-change: transform; }
+
+/* ---------- Layers ---------- */
+.particle-stage { position: fixed; inset: 0; z-index: 1; pointer-events: none; }
+.particle-stage canvas { display: block; width: 100%; height: 100%; }
+.launch-scene { z-index: 2; }
+.intro-screen, .explorer-section { background: transparent; }
+.canagi-app[data-scene='explorer'] .particle-stage { transition: opacity 400ms ease; }
+
+/* ---------- Launch layout ---------- */
+.intro-screen { padding-bottom: 6.5rem; }
+.intro-copy { width: min(48rem, 49vw); margin-top: 1rem; }
+.intro-title {
+  margin: 1.15rem 0 0;
+  color: var(--text);
+  font-family: var(--display-face);
+  font-size: clamp(5.4rem, 11.3vw, 11rem);
+  font-weight: 300;
+  font-optical-sizing: auto;
+  line-height: .86;
+  letter-spacing: -.02em;
+}
+#intro-title:focus { outline: none; }
+.title-letters { display: inline-block; white-space: nowrap; clip-path: inset(-.5em -.3em -.04em -.3em); }
+.title-letter {
+  display: inline-block;
+  font-weight: var(--wght, 300);
+  transition: font-weight 700ms var(--ease-out), color 500ms ease;
+}
+/* The acronym hides inside the name: CAN + AGI. */
+.title-letter:nth-child(n+4) { color: color-mix(in srgb, var(--text) 86%, var(--brand-purple)); }
+.intro-deck { max-width: 31rem; margin-top: 1.7rem; }
+.intro-deck .reveal-mask { padding-bottom: .16em; margin-bottom: -.16em; }
+.intro-byline .reveal-mask { padding-bottom: .2em; margin-bottom: -.2em; }
+
+/* A frosted pill whose purple fill spreads from the arrow; scroll charge fills it from the left. */
+.entry-action { position: relative; width: fit-content; }
+.enter-button {
+  --pull-x: 0px;
+  --pull-y: 0px;
+  position: relative;
+  isolation: isolate;
+  display: inline-flex;
+  align-items: center;
+  gap: 1.35rem;
+  margin-top: 2.1rem;
+  padding: .45rem .45rem .45rem 1.45rem;
+  overflow: hidden;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-solid) 72%, transparent);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  cursor: pointer;
+  font-size: .95rem;
+  transform: translate(var(--pull-x), var(--pull-y));
+  transition: transform 650ms var(--ease-out), border-color 300ms ease, color 450ms var(--ease-out), box-shadow 450ms var(--ease-out);
+}
+.enter-button::before, .enter-button::after { content: ''; position: absolute; z-index: -1; inset: 0; }
+.enter-button::before {
+  background: color-mix(in srgb, var(--brand-purple) 18%, var(--background));
+  transform: scaleX(var(--entry-progress, 0));
+  transform-origin: 0 50%;
+  transition: transform 520ms var(--ease-out);
+}
+.enter-button::after {
+  background: var(--brand-purple);
+  clip-path: circle(0 at calc(100% - 1.65rem) 50%);
+  transition: clip-path 700ms var(--ease-out);
+}
+.enter-button:hover:not(:disabled), .enter-button:focus-visible { color: #ffffff; border-color: var(--brand-purple); box-shadow: 0 18px 44px -18px color-mix(in srgb, var(--brand-purple) 75%, transparent); }
+.enter-button:hover:not(:disabled)::after, .enter-button:focus-visible::after { clip-path: circle(140% at calc(100% - 1.65rem) 50%); }
+.enter-button:active:not(:disabled) { transition-duration: 150ms; transform: translate(var(--pull-x), var(--pull-y)) scale(.97); }
+.enter-button:disabled { cursor: progress; }
+.enter-label { position: relative; }
+.enter-arrow {
+  display: grid;
+  width: 2.45rem;
+  height: 2.45rem;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 50%;
+  color: var(--background);
+  background: var(--text);
+  transform: translate(calc(var(--pull-x) * .45), calc(var(--pull-y) * .45));
+  transition: transform 650ms var(--ease-out), background 400ms ease, color 400ms ease;
+}
+.enter-arrow svg { animation: arrow-nudge 2600ms var(--ease-in-out) infinite; }
+.enter-button:hover:not(:disabled) .enter-arrow, .enter-button:focus-visible .enter-arrow { color: var(--brand-purple); background: #ffffff; }
+:root[data-theme='dark'] .enter-button:hover:not(:disabled) .enter-arrow { color: #3c3ad6; }
+
+/* ---------- Stage anchor and annotations ---------- */
+.intro-art { position: absolute; z-index: 1; top: 10svh; right: 3.5vw; width: 50vw; height: 72svh; pointer-events: none; }
+.intro-art > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.stage-hud { position: absolute; inset: 0; color: var(--brand-purple); font: 600 .64rem/1 var(--mono-face); letter-spacing: .14em; text-transform: uppercase; }
+.stage-index { position: absolute; top: 3%; right: 0; display: grid; gap: .55rem; margin: 0; padding: 0 0 0 1.1rem; list-style: none; border-left: 1px solid color-mix(in srgb, var(--brand-purple) 28%, transparent); }
+.stage-index::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -1px;
+  width: 2px;
+  height: 1rem;
+  background: var(--brand-purple);
+  transform: translateY(calc(var(--stage) * 1.55rem));
+  transition: transform 700ms var(--ease-out);
+}
+.stage-index li { display: flex; height: 1rem; align-items: center; gap: .75rem; color: color-mix(in srgb, var(--brand-purple) 42%, transparent); transition: color 500ms ease, transform 700ms var(--ease-out); }
+.stage-index li > span { font-weight: 500; opacity: .7; }
+.stage-index li[aria-current] { color: var(--brand-purple); transform: translateX(.4rem); }
+.stage-caption { position: absolute; right: 0; bottom: -5%; max-width: 16.5rem; text-align: right; animation: caption-in 800ms var(--ease-out) both; }
+.stage-figure { display: flex; align-items: baseline; justify-content: flex-end; gap: .6rem; margin: 0; }
+.stage-figure strong { color: var(--text); font: 300 clamp(2.4rem, 3.5vw, 3.3rem)/1 var(--display-face); letter-spacing: -.035em; text-transform: none; }
+.stage-text { margin: .6rem 0 0; color: var(--muted); font: italic 400 .86rem/1.45 'PT Serif', Georgia, serif; letter-spacing: 0; text-transform: none; }
+.stage-coordinates { position: absolute; bottom: -2%; left: 0; display: grid; gap: .35rem; margin: 0; padding-right: .85rem; border-right: 1px solid color-mix(in srgb, var(--brand-purple) 45%, transparent); font-size: .74rem; letter-spacing: .08em; }
+.stage-cross { position: absolute; top: var(--y); left: var(--x); width: 11px; height: 11px; opacity: .8; }
+.stage-cross::before, .stage-cross::after { content: ''; position: absolute; background: var(--brand-purple); }
+.stage-cross::before { top: 0; left: 5px; width: 1px; height: 11px; }
+.stage-cross::after { top: 5px; left: 0; width: 11px; height: 1px; }
+.stage-rule { position: absolute; width: 1px; background: linear-gradient(to bottom, transparent, color-mix(in srgb, var(--brand-purple) 40%, transparent) 25% 75%, transparent); transform-origin: top; }
+.stage-rule--left { top: 16%; left: 3%; height: 52%; }
+.stage-rule--right { top: 38%; right: -1.4rem; height: 44%; }
+
+/* Three steps of scroll charge the three stages ahead. */
+.stage-rail { position: absolute; z-index: 3; bottom: max(1.7rem, env(safe-area-inset-bottom)); left: 50%; display: grid; justify-items: center; gap: .7rem; transform: translateX(-50%); }
+.stage-rail-label { color: var(--text); font: 700 .68rem/1 var(--mono-face); letter-spacing: .18em; text-transform: uppercase; animation: rail-breathe 3600ms ease-in-out infinite; }
+.stage-rail-track { display: flex; gap: 6px; }
+.stage-rail-track i { position: relative; display: block; width: 46px; height: 2px; overflow: hidden; border-radius: 2px; background: var(--line); }
+.stage-rail-track i::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--brand-purple);
+  transform: scaleX(clamp(0, calc(var(--entry-progress, 0) * 3 - var(--segment)), 1));
+  transform-origin: 0 50%;
+  transition: transform 600ms var(--ease-out);
+}
+.stage-rail-track i:first-child::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--brand-purple) 70%, transparent), transparent);
+  transform: translateX(-100%);
+  animation: rail-invite 2800ms 1800ms var(--ease-in-out) infinite;
+}
+
+/* ---------- The shutter: Canada's workforce, covering the swap between pages ---------- */
+.stage-shutter { position: fixed; z-index: 90; inset: 0; overflow: hidden; pointer-events: none; perspective: 1700px; perspective-origin: 50% 30%; }
+.stage-shutter[hidden] { display: none; }
+.stage-shutter::before { content: ''; position: absolute; inset: 0; background: var(--background); opacity: 0; }
+.stage-shutter > i { position: absolute; display: block; opacity: 0; backface-visibility: hidden; transform-origin: 50% 0; }
+.shutter-field { position: absolute; margin: 0; padding: clamp(.55rem, 1vw, 1rem); container-type: size; opacity: 0; font: 600 .66rem/1.35 var(--mono-face); letter-spacing: .07em; text-transform: uppercase; }
+.shutter-field > span { display: grid; gap: .3rem; }
+.shutter-field b { font-weight: 700; }
+.shutter-field small { font-size: .6rem; opacity: .78; }
+@container (width < 7.5rem) or (height < 3.2rem) { .shutter-field > span { display: none; } }
+.shutter-caption { position: absolute; right: 1.1rem; bottom: 1.1rem; display: flex; gap: 1.1rem; margin: 0; padding: .6rem .85rem; opacity: 0; color: var(--text); background: color-mix(in srgb, var(--background) 90%, transparent); font: 600 .62rem/1 var(--mono-face); letter-spacing: .12em; text-transform: uppercase; }
+.shutter-caption span + span { padding-left: 1.1rem; border-left: 1px solid var(--line-strong); }
+
+.stage-shutter[data-scene='leaving'] > i { transform-origin: 50% 50%; animation: shutter-fill 380ms var(--ease-out) both; animation-delay: calc(740ms + var(--order) * 280ms); }
+.stage-shutter[data-scene='leaving']::before { animation: backdrop-in 110ms linear 1290ms both; }
+.stage-shutter[data-scene='leaving'] .shutter-field { animation: field-in 420ms var(--ease-out) both; animation-delay: calc(1060ms + var(--order) * 160ms); }
+.stage-shutter[data-scene='leaving'] .shutter-caption { animation: field-in 420ms var(--ease-out) 1180ms both; }
+.stage-shutter[data-scene='entering'] > i { opacity: 1; animation: shutter-fold 660ms cubic-bezier(.55, 0, .8, .25) both; animation-delay: calc(240ms + var(--order) * 620ms); }
+.stage-shutter[data-scene='entering']::before { animation: backdrop-out 70ms linear 220ms both; }
+.stage-shutter[data-scene='entering'] :is(.shutter-field, .shutter-caption) { animation: field-out 240ms ease-in 40ms both; }
+.stage-shutter[data-scene='returning'] > i { animation: shutter-unfold 560ms var(--ease-out) both; animation-delay: calc(420ms + var(--order) * 420ms); }
+.stage-shutter[data-scene='returning']::before { animation: backdrop-in 100ms linear 1290ms both; }
+.stage-shutter[data-scene='returning'] .shutter-field { animation: field-in 400ms var(--ease-out) both; animation-delay: calc(930ms + var(--order) * 200ms); }
+.stage-shutter[data-scene='returning'] .shutter-caption { animation: field-in 400ms var(--ease-out) 1100ms both; }
+.stage-shutter[data-scene='arriving'] > i { opacity: 1; transform-origin: 50% 50%; animation: shutter-dissolve 440ms var(--ease-in-out) both; animation-delay: calc(90ms + var(--order) * 260ms); }
+.stage-shutter[data-scene='arriving']::before { animation: backdrop-out 90ms linear both; }
+.stage-shutter[data-scene='arriving'] :is(.shutter-field, .shutter-caption) { animation: field-out 220ms ease-in both; }
+
+/* ---------- Launch: first load and returning home ---------- */
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .site-nav { animation: drop-in 900ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 80ms); }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .intro-copy .animated-char { animation: character-in 140ms linear both; animation-delay: calc(var(--scene-offset) + var(--text-delay) + var(--char-index) * var(--char-step)); }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .title-letter { animation: letter-rise 1250ms var(--ease-out) backwards; animation-delay: calc(var(--scene-offset) + 180ms + var(--letter) * 75ms); }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .intro-copy .reveal-word { animation: word-rise 1000ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + var(--reveal-delay) + var(--word) * var(--reveal-step)); }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .entry-action { animation: rise-in 1000ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 820ms); }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .stage-index li { animation: slide-in 800ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 650ms + var(--i, 0) * 70ms); }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .stage-index li:nth-child(2) { --i: 1; }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .stage-index li:nth-child(3) { --i: 2; }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .stage-index li:nth-child(4) { --i: 3; }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .stage-index::before,
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .stage-rule { animation: draw-down 1100ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 500ms); }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .stage-caption { animation-delay: calc(var(--scene-offset) + 950ms); }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .stage-coordinates { animation: rise-in 900ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 1000ms); }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .stage-cross { animation: cross-in 900ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 700ms); }
+:is(.canagi-app[data-boot], .canagi-app[data-scene='arriving']) .stage-rail { animation: rail-in 1000ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 1100ms); }
+
+/* ---------- Launch: leaving for the job market ---------- */
+.canagi-app[data-scene='leaving'] .site-nav { animation: lift-out 520ms var(--ease-in) both; }
+.canagi-app[data-scene='leaving'] .intro-copy .animated-char { animation: character-out 180ms ease-in both; animation-delay: calc(var(--char-index) * 5ms); }
+.canagi-app[data-scene='leaving'] .title-letters { clip-path: none; }
+.canagi-app[data-scene='leaving'] .title-letter { animation: letter-out 720ms var(--ease-in) both; animation-delay: calc(60ms + var(--letter) * 45ms); }
+.canagi-app[data-scene='leaving'] .intro-copy .reveal-word { animation: word-out 560ms var(--ease-in) both; animation-delay: calc(90ms + var(--word) * 14ms); }
+.canagi-app[data-scene='leaving'] .enter-button { border-color: var(--brand-purple); }
+.canagi-app[data-scene='leaving'] .enter-button::before { transform: scaleX(1); }
+.canagi-app[data-scene='leaving'] .enter-arrow svg { animation: arrow-dive 520ms var(--ease-in) both; }
+.canagi-app[data-scene='leaving'] .entry-action { animation: lift-out 460ms var(--ease-in) 420ms both; }
+.canagi-app[data-scene='leaving'] .stage-hud { animation: fade-out 420ms ease-in both; }
+.canagi-app[data-scene='leaving'] .stage-rail-track i::after { transform: scaleX(1); }
+.canagi-app[data-scene='leaving'] .stage-rail { animation: fade-out 360ms ease-in 380ms both; }
+
+/* ---------- Visualizer: entering from the launch, or a page and view swap ---------- */
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) .page-topline { animation: drop-in 800ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 120ms); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) .animated-char { animation: character-in 140ms linear both; animation-delay: calc(var(--scene-offset) + var(--text-delay) + var(--char-index) * var(--char-step)); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) .reveal-word { animation: word-rise 1000ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + var(--reveal-delay) + var(--word) * var(--reveal-step)); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) :is(.national-context, .research-heading > div > p, .research-heading-note) { animation: rise-in 900ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 420ms); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) :is(.layer-bar, .explorer-controls) { animation: rise-in 900ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 360ms); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) :is(.pay-disclaimer, .results-heading, .coverage-notice, .overview-coverage, .field-introduction, .field-choices) { animation: rise-in 900ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 460ms); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) .metric-card { animation: rise-in 900ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + var(--card-delay) - 250ms); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) .distribution-column i { animation: bar-up 1000ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + var(--text-delay) - 150ms); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) .metric-row-bar i { animation: bar-across 1000ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + var(--text-delay) - 150ms); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) .color-legend .palette-legend { animation: bar-across 900ms var(--ease-out) both; transform-origin: 0 50%; animation-delay: calc(var(--scene-offset) + 650ms); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) :is(.research-summary, .selected-field-index, .field-study-section, .list-toolbar, .field-table-wrap, .table-scroll) { animation: rise-in 900ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 520ms); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) .occupation-row { animation: rise-in 800ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + 560ms + var(--row, 0) * 28ms); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) .site-footer { animation: fade-in 900ms ease both; animation-delay: calc(var(--scene-offset) + 900ms); }
+:is(.canagi-app[data-scene='entering'] .explorer-section, .canagi-app [data-motion='in']) .data-state { animation: fade-in 500ms ease both; }
+
+/* Pages and views leave quickly and lift away before the next one rises in. */
+.canagi-app [data-motion='out'] { animation: surface-out 420ms var(--ease-in) both; pointer-events: none; }
+
+/* ---------- Visualizer: returning home ---------- */
+.canagi-app[data-scene='returning'] .page-topline { animation: lift-out 480ms var(--ease-in) both; }
+.canagi-app[data-scene='returning'] .explorer-copy .reveal-word { animation: word-out 520ms var(--ease-in) both; animation-delay: calc(40ms + var(--word) * 30ms); }
+.canagi-app[data-scene='returning'] :is(.explorer-copy > p, .explorer-copy > button, .career-page-heading) { animation: lift-out 520ms var(--ease-in) 120ms both; }
+.canagi-app[data-scene='returning'] :is(.market-results, .explorer-controls, .field-comparison, .results-heading, .site-footer) { animation: sink-out 700ms var(--ease-in) 160ms both; }
+
+/* ---------- Visualizer heading: the formation rests beside the title ---------- */
+.overview-page .explorer-art { top: 0; right: 0; width: 46%; height: 100%; overflow: visible; opacity: 1; -webkit-mask-image: none; mask-image: none; }
+.overview-page .explorer-art > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+.overview-page .market-results { background: linear-gradient(to bottom, transparent, var(--background) 72px); }
+
+/* ---------- Layer bar ---------- */
+.layer-buttons { position: relative; }
+.layer-buttons button { transition: color 300ms ease, background-color 400ms ease, border-color 300ms ease; }
+.layer-indicator { display: none; }
+.overview-page .layer-buttons button.active { border-bottom-color: transparent; }
+.overview-page .layer-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  display: block;
+  width: var(--indicator-width, 0);
+  height: 2px;
+  background: var(--brand-purple);
+  transform: translate(var(--indicator-x, 0), var(--indicator-y, 0));
+  transition: transform 560ms var(--ease-out), width 560ms var(--ease-out);
+  pointer-events: none;
+}
+.color-legend { grid-template-columns: auto auto auto; }
+.layer-legend { animation: legend-in 520ms var(--ease-out) both; }
+.layer-legend .palette-legend { animation: bar-across 700ms var(--ease-out) both; transform-origin: 0 50%; }
+.teer-legend span { animation: rise-in 520ms var(--ease-out) both; animation-delay: calc(var(--swatch) * 45ms); }
+.metric-value .count-up { font-variant-numeric: tabular-nums; }
+
+/* ---------- Treemap ---------- */
+.treemap-context { display: flex; min-height: 1.5rem; align-items: center; margin: 0 0 .5rem; overflow: hidden; color: var(--muted); font: 600 .64rem/1.4 var(--mono-face); letter-spacing: .08em; text-transform: uppercase; }
+.treemap-context-inner { display: flex; flex-wrap: wrap; gap: .3rem 0; animation: context-in 460ms var(--ease-out) both; }
+.treemap-context-inner > * + * { margin-left: 1rem; padding-left: 1rem; border-left: 1px solid var(--line); }
+.treemap-context b { color: var(--brand-purple); font-weight: 700; }
+.treemap-shell { position: relative; }
+.treemap-cell { transform-box: fill-box; transform-origin: 50% 0; }
+.treemap-tile { transition: fill 720ms var(--ease-soft) var(--sweep, 0ms), opacity 380ms ease 40ms, stroke 160ms ease; }
+.treemap a:hover .treemap-tile, .treemap a:focus .treemap-tile { stroke: color-mix(in srgb, var(--surface-solid) 78%, transparent); stroke-width: .65; }
+.tile-label { transition: color 10ms linear calc(var(--sweep, 0ms) + 300ms), opacity 420ms ease; }
+.tile-word, .tile-initial { transition: fill 10ms linear calc(var(--sweep, 0ms) + 300ms), opacity 420ms ease; }
+.tile-metric { animation: metric-swap 560ms var(--ease-out) both; animation-delay: calc(var(--sweep, 0ms) + 200ms); }
+.treemap .animated-char { animation: none !important; }
+
+/* The map unfolds along one diagonal wave the first time it is seen. */
+.treemap-figure:not(.is-revealed) .treemap-cell { opacity: 0; }
+.treemap-figure:not(.is-revealed) .treemap-shell { background: transparent; }
+.treemap-figure.is-revealed:not(.is-settled) .treemap-cell { animation: tile-unfold 1000ms var(--ease-out) both; animation-delay: calc(var(--scene-offset) + var(--tile-delay)); }
+.treemap-figure.is-revealed:not(.is-settled) :is(.tile-label, .tile-word, .tile-initial) { animation: fade-in 600ms ease both; animation-delay: calc(var(--scene-offset) + var(--tile-delay) + 280ms); }
+.treemap-figure .treemap-cell[data-new] { animation: tile-unfold 820ms var(--ease-out) both; animation-delay: calc(var(--sweep, 0ms) * .6); }
+
+/* Hovering focuses one field: the rest recede, a ring glides to the tile. */
+.treemap[data-focus] .treemap-tile { opacity: .36; }
+.treemap[data-focus='0'] [data-cat='0'] .treemap-tile, .treemap[data-focus='1'] [data-cat='1'] .treemap-tile,
+.treemap[data-focus='2'] [data-cat='2'] .treemap-tile, .treemap[data-focus='3'] [data-cat='3'] .treemap-tile,
+.treemap[data-focus='4'] [data-cat='4'] .treemap-tile, .treemap[data-focus='5'] [data-cat='5'] .treemap-tile,
+.treemap[data-focus='6'] [data-cat='6'] .treemap-tile, .treemap[data-focus='7'] [data-cat='7'] .treemap-tile,
+.treemap[data-focus='8'] [data-cat='8'] .treemap-tile, .treemap[data-focus='9'] [data-cat='9'] .treemap-tile { opacity: 1; }
+.treemap-focus-ring, .treemap-field-ring { fill: none; pointer-events: none; }
+.treemap-focus-ring { stroke: var(--text); stroke-width: 2; transition: x 260ms var(--ease-out), y 260ms var(--ease-out), width 260ms var(--ease-out), height 260ms var(--ease-out); animation: fade-in 200ms ease both; }
+.treemap-field-ring { stroke: var(--text); stroke-opacity: .55; stroke-width: 1; stroke-dasharray: 2 3; transition: x 460ms var(--ease-out), y 460ms var(--ease-out), width 460ms var(--ease-out), height 460ms var(--ease-out); animation: fade-in 300ms ease both; }
+
+/* A soft sheen travels with the colour sweep when the layer changes. */
+.treemap-sheen { position: absolute; inset: 0; overflow: hidden; pointer-events: none; }
+.treemap-sheen::before { content: ''; position: absolute; top: -10%; bottom: -10%; left: 0; width: 32%; background: linear-gradient(100deg, transparent, rgb(255 255 255 / .42), transparent); transform: translateX(-130%) skewX(-14deg); animation: sheen 1150ms var(--ease-in-out) both; }
+
+/* Filtering glides surviving tiles to their new places; new ones unfold into gaps. */
+.treemap-figure.is-relayout .treemap-tile { transition: x 700ms var(--ease-out), y 700ms var(--ease-out), width 700ms var(--ease-out), height 700ms var(--ease-out), fill 720ms var(--ease-soft); }
+.treemap-figure.is-relayout :is(.tile-label, .tile-word, .tile-initial) { opacity: 0; transition-duration: 120ms; }
+
+.treemap-tooltip {
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
+  -webkit-backdrop-filter: blur(12px);
+  backdrop-filter: blur(12px);
+  box-shadow: 0 28px 60px -28px rgb(24 22 70 / .45), 0 2px 10px rgb(24 22 70 / .08);
+  transform-origin: 20% 0;
+  transition: left 280ms var(--ease-out), top 280ms var(--ease-out);
+  animation: tooltip-in 280ms var(--ease-out) both;
+}
+.tooltip-body { animation: tooltip-swap 260ms var(--ease-out) both; }
+.tooltip-link svg { transition: transform 300ms var(--ease-out); }
+.treemap-tooltip .tooltip-link { color: var(--brand-purple); }
+
+/* ---------- Site-wide details ---------- */
+.scroll-progress { position: fixed; z-index: 40; top: 0; left: 0; width: 100%; height: 2px; background: var(--brand-purple); transform: scaleX(0); transform-origin: 0 50%; opacity: 0; pointer-events: none; }
+@supports (animation-timeline: scroll()) {
+  .canagi-app[data-scene='explorer'] .scroll-progress { opacity: 1; animation: progress-grow linear both; animation-timeline: scroll(root); }
+}
+/* Sections below the fold rise into place as they scroll into view. */
+@supports (animation-timeline: view()) {
+  .canagi-app[data-scene='explorer'] [data-motion='idle'] :is(.field-study-section, .table-footnote, .list-pagination, .comparison-takeaways, .site-footer, .field-notes) {
+    animation: scroll-rise linear both;
+    animation-timeline: view();
+    animation-range: entry 0px entry 240px;
+  }
+}
+.primary-button, .secondary-button, .quick-bands button, .field-choices button, .compare-add, .filter-menu summary, .view-toggle button, .list-pagination button, .dialog-close {
+  transition: transform 350ms var(--ease-out), background-color 250ms ease, border-color 250ms ease, color 250ms ease, box-shadow 350ms var(--ease-out);
+}
+:is(.primary-button, .secondary-button, .quick-bands button, .field-choices button, .compare-add, .list-pagination button):hover:not(:disabled) { transform: translateY(-1px); }
+:is(.primary-button, .secondary-button, .quick-bands button, .field-choices button, .compare-add, .list-pagination button, .dialog-close):active:not(:disabled) { transform: scale(.96); transition-duration: 120ms; }
+.dialog-close:hover { transform: rotate(90deg); border-color: var(--text); }
+.text-button svg, .field-drill svg, .career-resources svg, .site-footer a svg { transition: transform 350ms var(--ease-out); }
+.text-button:hover svg, .field-drill:hover svg, .site-footer a:hover svg { transform: translateX(3px); }
+.career-resources a:hover svg { transform: translate(2px, -2px); }
+.page-theme svg { transition: transform 600ms var(--ease-out); }
+.page-theme:hover svg { transform: rotate(-24deg) scale(1.06); }
+.page-link::after { transition: transform 460ms var(--ease-out); }
+.career-dialog[open] { animation: dialog-in 520ms var(--ease-out) both; }
+.career-dialog[open]::backdrop { animation: fade-in 360ms ease both; }
+.filter-menu[open] .filter-popover { animation: popover-in 320ms var(--ease-out) both; transform-origin: 0 0; }
+.comparison-tray { animation: tray-rise 620ms var(--ease-out) both; }
+.career-table tbody tr { transition: background-color 250ms ease; }
+/* A two-by-two map whose brightest tile turns while the data loads. */
+.data-state.loading span {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 0;
+  background: conic-gradient(var(--brand-purple) 0 25%, color-mix(in srgb, var(--brand-purple) 55%, transparent) 0 50%, color-mix(in srgb, var(--brand-purple) 30%, transparent) 0 75%, color-mix(in srgb, var(--brand-purple) 14%, transparent) 0);
+  animation: spin 1200ms steps(4) infinite;
+}
+
+/* ---------- Keyframes ---------- */
+@keyframes letter-rise { from { transform: translateY(104%); font-weight: 120; } to { transform: none; font-weight: 300; } }
+@keyframes letter-out { to { opacity: 0; transform: translateY(-34%); filter: blur(12px); font-weight: 600; } }
+@keyframes word-rise { from { transform: translateY(108%); } to { transform: none; } }
+@keyframes word-out { to { transform: translateY(-108%); } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(22px); } to { opacity: 1; transform: none; } }
+@keyframes drop-in { from { opacity: 0; transform: translateY(-14px); } to { opacity: 1; transform: none; } }
+@keyframes slide-in { from { opacity: 0; transform: translateX(14px); } }
+@keyframes lift-out { to { opacity: 0; transform: translateY(-18px); } }
+@keyframes sink-out { to { opacity: 0; transform: translateY(36px); } }
+@keyframes surface-out { to { opacity: 0; transform: translateY(-16px); } }
+@keyframes fade-in { from { opacity: 0; } }
+@keyframes fade-out { to { opacity: 0; } }
+@keyframes caption-in { from { opacity: 0; transform: translateY(14px); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
+@keyframes draw-down { from { transform: scaleY(0); } }
+@keyframes cross-in { from { opacity: 0; transform: rotate(-90deg) scale(.2); } }
+@keyframes rail-in { from { opacity: 0; transform: translate(-50%, 16px); } to { opacity: 1; transform: translate(-50%, 0); } }
+@keyframes rail-breathe { 0%, 100% { opacity: .6; } 50% { opacity: 1; } }
+@keyframes rail-invite { 0% { transform: translateX(-100%); } 55%, 100% { transform: translateX(100%); } }
+@keyframes arrow-nudge { 0%, 55%, 100% { transform: none; } 70% { transform: translateY(3px); } 85% { transform: translateY(-1px); } }
+@keyframes arrow-dive { 0% { transform: none; } 45% { transform: translateY(130%); } 46% { transform: translateY(-130%); } 100% { transform: none; } }
+@keyframes shutter-fill { from { opacity: 0; transform: scale(.9); } to { opacity: 1; transform: none; } }
+@keyframes shutter-fold { 0% { transform: none; filter: none; } 75% { opacity: 1; } 100% { opacity: 0; transform: rotateX(-96deg); filter: brightness(.5); } }
+@keyframes shutter-unfold { 0% { opacity: 0; transform: rotateX(-96deg); filter: brightness(.5); } 30% { opacity: 1; } 100% { opacity: 1; transform: none; filter: none; } }
+@keyframes shutter-dissolve { from { opacity: 1; transform: none; } to { opacity: 0; transform: scale(.93); } }
+@keyframes backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes field-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@keyframes field-out { from { opacity: 1; } to { opacity: 0; transform: translateY(-6px); } }
+
+@keyframes legend-in { from { opacity: 0; transform: translateY(4px); } }
+@keyframes context-in { from { opacity: 0; transform: translateY(70%); } }
+@keyframes tile-unfold { 0% { opacity: 0; transform: translateY(-10px) scaleY(.18); } 55% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+@keyframes metric-swap { from { opacity: 0; transform: translateY(4px); } }
+@keyframes sheen { to { transform: translateX(420%) skewX(-14deg); } }
+@keyframes tooltip-in { from { opacity: 0; transform: translateY(6px) scale(.97); } }
+@keyframes tooltip-swap { from { opacity: 0; transform: translateY(3px); } }
+@keyframes progress-grow { to { transform: scaleX(1); } }
+@keyframes scroll-rise { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: none; } }
+@keyframes dialog-in { from { opacity: 0; transform: translateY(26px) scale(.975); } to { opacity: 1; transform: none; } }
+@keyframes popover-in { from { opacity: 0; transform: translateY(-6px) scale(.98); } }
+@keyframes tray-rise { from { opacity: 0; transform: translate(-50%, 24px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
+/* ---------- Narrow screens ---------- */
+@media (max-width: 900px) {
+  .intro-copy { width: min(42rem, 84vw); }
+  .intro-art { top: 9svh; right: -12vw; width: 70vw; height: 64svh; }
+  .stage-caption, .stage-coordinates, .stage-rule { display: none; }
+}
+@media (max-width: 760px) {
+  .overview-page .explorer-art { top: 1rem; width: 100%; height: 70%; }
+}
+@media (max-width: 620px) {
+  /* The same primary destinations on every screen. */
+  .unified-links > a.page-link { display: inline-block; }
+  .intro-screen { padding-bottom: 6.4rem; }
+  .intro-copy { width: 100%; margin: 0; }
+  .intro-title { font-size: clamp(4rem, 20.5vw, 5.6rem); }
+  .intro-art { top: 7rem; right: 0; left: 0; width: 100%; height: 28svh; }
+  .stage-index { top: auto; right: 0; bottom: -.4rem; left: 0; display: flex; justify-content: center; gap: .9rem; padding: 0; border: 0; font-size: .56rem; }
+  .stage-index::before { display: none; }
+  .stage-index li { gap: .35rem; }
+  .stage-index li[aria-current] { transform: none; }
+  .stage-cross { display: none; }
+  .stage-rail { bottom: max(1.2rem, env(safe-area-inset-bottom)); }
+  .enter-button { margin-top: 1.6rem; }
+  .layer-legend { width: 100%; }
+  .color-legend { grid-template-columns: auto 1fr auto; }
+}
+@media (max-width: 620px) and (max-height: 740px) {
+  .intro-art { top: 5rem; height: 46svh; }
+  .stage-index { display: none; }
+}

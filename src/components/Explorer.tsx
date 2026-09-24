@@ -1,5 +1,5 @@
 import { displayRecord } from '../lib/displayCopy'
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { ArrowRight, ExternalLink, RotateCcw } from 'lucide-react'
 import type { Occupation } from '../types'
 import { emptyFilters, FIELD_DEFINITIONS, matchesCareer, uniqueCareers } from '../lib/careers'
@@ -17,6 +17,11 @@ import { NavigationLinks } from './NavigationLinks'
 import { CareerSummary } from './CareerSummary'
 import { DATA_RELEASE } from '../data/dataRelease'
 import { useSurfaceTransition } from '../lib/useSurfaceTransition'
+import { loadOccupations } from '../lib/occupationData'
+import { RevealText } from './RevealText'
+import { motionState, subscribeMotion } from '../lib/motionStore'
+
+const readSupport = () => motionState.webgl
 
 interface Props {
   interactive: boolean; hidden: boolean; page: ContentPage
@@ -29,6 +34,13 @@ export function Explorer({ interactive, hidden, page, onNavigate, onHome, darkMo
   const [error, setError] = useState(false)
   const [methodology, setMethodology] = useState(() => window.location.hash === '#methodology')
   const [announcement, setAnnouncement] = useState('')
+  // Each arrival remounts the summary and map so their entrances play where they can be seen.
+  const [visit, setVisit] = useState(0)
+  const [wasHidden, setWasHidden] = useState(hidden)
+  if (wasHidden !== hidden) {
+    setWasHidden(hidden)
+    if (!hidden) setVisit(value => value + 1)
+  }
   const pageTransition = useSurfaceTransition()
   const viewTransition = useSurfaceTransition()
   const navigate = (destination: ContentPage) => {
@@ -48,13 +60,14 @@ export function Explorer({ interactive, hidden, page, onNavigate, onHome, darkMo
   }, [update])
   const showMethodology = useCallback(() => setMethodology(true), [])
 
+  const webgl = useSyncExternalStore(subscribeMotion, readSupport, () => true)
+
   useEffect(() => {
-    const controller = new AbortController()
-    fetch('/data/occupations.json', { signal: controller.signal })
-      .then(response => { if (!response.ok) throw new Error('Occupation data could not be loaded'); return response.json() as Promise<Occupation[]> })
-      .then(occupations => setData(uniqueCareers(displayRecord(occupations))))
-      .catch(e => { if (e.name !== 'AbortError') setError(true) })
-    return () => controller.abort()
+    let live = true
+    loadOccupations()
+      .then(occupations => { if (live) setData(uniqueCareers(displayRecord(occupations))) })
+      .catch(() => { if (live) setError(true) })
+    return () => { live = false }
   }, [])
 
   const exploreField = (id: string) => {
@@ -79,11 +92,11 @@ export function Explorer({ interactive, hidden, page, onNavigate, onHome, darkMo
         </div>
 
         {overview ? <header className="explorer-heading">
-          <div className="explorer-art" aria-hidden="true"><img src="/assets/canada-workforce.webp" alt="" width="1672" height="941" /></div>
+          <div className="explorer-art" aria-hidden="true">{!webgl && <img src="/assets/canada-workforce.webp" alt="" width="1672" height="941" />}</div>
           <div className="explorer-copy">
             <h2 id="explorer-title" tabIndex={-1}>
-              <span className="heading-line"><AnimatedText text="Canadian Job" delay={80} duration={350} /></span>
-              <span className="heading-line"><AnimatedText text="Market Visualizer" delay={210} duration={420} /></span>
+              <span className="heading-line"><RevealText text="Canadian Job" delay={60} step={70} /></span>
+              <span className="heading-line"><RevealText text="Market Visualizer" delay={170} step={70} /></span>
             </h2>
             <p className="explorer-description"><AnimatedText text="516 occupations. One connected view of Canadian work. Compare employment, annualized wages, training pathways, projected demand and explainable AI exposure." delay={380} duration={550} /></p>
             <p className="source-line"><AnimatedText text="516 occupations · Employment base 2023 · Wage release November 2025" delay={610} duration={450} /></p>
@@ -91,7 +104,7 @@ export function Explorer({ interactive, hidden, page, onNavigate, onHome, darkMo
             <button className="text-button header-methodology" id="methodology" type="button" onClick={showMethodology}><AnimatedText text="About the data & its limits" delay={950} duration={250} /><ArrowRight size={13} /></button>
           </div>
         </header> : page === 'careers' ? <header className="career-page-heading research-heading">
-          <div><p className="research-eyebrow">THE WORK BEHIND THE NUMBERS</p><h2 id="career-page-title" tabIndex={-1}><AnimatedText text="The Career Explorer." delay={80} duration={400} /></h2>
+          <div><p className="research-eyebrow">THE WORK BEHIND THE NUMBERS</p><h2 id="career-page-title" tabIndex={-1}><RevealText text="The Career Explorer." delay={60} step={70} /></h2>
           <p>Find and compare occupations by pay, pathways, demand and AI exposure.</p></div>
           <div className="research-heading-note"><span>516 OCCUPATIONS / CANADA</span><p>Wages: November 2025 release<br />Activity profiles: OaSIS 2025</p><button className="text-button" type="button" onClick={showMethodology}>Sources & methodology <ArrowRight size={14} /></button></div>
         </header> : null}
@@ -109,10 +122,10 @@ export function Explorer({ interactive, hidden, page, onNavigate, onHome, darkMo
               {(overview || state.view === 'treemap') && <LayerControls layer={state.layer} onChange={layer => update({ layer })} />}
               {overview && <p className="pay-disclaimer">Pay: published medians, annualized where hourly. AI: experimental relative index, not job loss probability. <button className="text-button" type="button" onClick={showMethodology}>Sources & limitations</button></p>}
               {visibleData.length === 0 ? <div className="empty-results" role="status"><span className="utility-label">NO MATCHES</span><h3>A different starting point?</h3><p>No occupations match all these filters. Try widening a range or removing a selection. Your criteria have not been changed.</p><button className="secondary-button" type="button" onClick={() => update({ ...emptyFilters(), page: 1 })}><RotateCcw size={16} />Clear all filters</button></div> : <>
-                {overview ? <StatsGrid layer={state.layer} data={visibleData} /> : <CareerSummary data={visibleData} />}
+                {overview ? <StatsGrid layer={state.layer} data={visibleData} key={visit} /> : <CareerSummary data={visibleData} />}
                 {!overview && state.view === 'list' ? <CareerList data={matching} sort={state.sort} layer={state.layer} page={state.page} compared={state.compared} onSort={sort => update({ sort, page: 1 })} onPage={changePage} onSelect={openDetail} onCompare={toggleCompare} /> : <>
                   {sizedCount < visibleData.length && <div className={overview ? 'overview-coverage' : 'coverage-notice'}><p><strong>{visibleData.length - sizedCount} {overview ? '' : 'matching '}occupations have no employment size.</strong> {overview ? 'They are available in the Career Explorer list.' : 'They remain in List and the matching count, but cannot be sized on the treemap.'}</p>{!overview && <button className="text-button" type="button" onClick={() => update({ view: 'list' })}>View all in List <ArrowRight size={14} /></button>}</div>}
-                  {sizedCount > 0 && <OccupationTreemap layer={state.layer} data={visibleData} onSelect={openDetail} />}
+                  {sizedCount > 0 && <OccupationTreemap layer={state.layer} data={visibleData} onSelect={openDetail} key={visit} />}
                 </>}
               </>}
             </div>

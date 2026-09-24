@@ -245,7 +245,7 @@ test('tooltip stays in the viewport and clear of tiles at all four corners', () 
     assert(!overlaps, `Tooltip obscures a corner tile at ${left}, ${top}`)
   }
 })
-const { createSurfaceTransition } = load('src/lib/useSurfaceTransition.ts')
+const { createSurfaceTransition, SURFACE_EXIT_MS, SURFACE_ENTER_MS } = load('src/lib/useSurfaceTransition.ts')
 test('page and list/map swaps wait for exit, commit once, and support cancel and reduced motion', () => {
   const tasks = new Map(), phases = [], commits = []
   let id = 0
@@ -255,9 +255,9 @@ test('page and list/map swaps wait for exit, commit once, and support cancel and
   assert(transition.run(() => commits.push('list')))
   assert(!transition.run(() => commits.push('duplicate')))
   assert.deepEqual(commits, [])
-  assert.equal(next(), EXIT_DURATION_MS)
+  assert.equal(next(), SURFACE_EXIT_MS)
   assert.deepEqual(commits, ['list']); assert.equal(phases.at(-1), 'in')
-  assert.equal(next(), ENTER_DURATION_MS); assert.equal(phases.at(-1), 'idle')
+  assert.equal(next(), SURFACE_ENTER_MS); assert.equal(phases.at(-1), 'idle')
   transition.run(() => commits.push('canceled')); transition.cancel(); assert.equal(tasks.size, 0)
   transition.run(() => commits.push('reduced'), true); assert.deepEqual(commits, ['list', 'reduced'])
   transition.run(() => commits.push('escape')); transition.finish(); assert.equal(commits.at(-1), 'escape'); assert.equal(tasks.size, 0)

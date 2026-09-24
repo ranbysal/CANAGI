@@ -226,8 +226,7 @@ input:focus-visible, select:focus-visible, [tabindex='0']:focus-visible { outlin
 .field-distribution b { display: block; height: 100%; }
 .field-distribution strong { flex: 0 0 35px; font-weight: 400; text-align: right; }
 .field-notes { margin: 1.5rem 0; max-width: 1050px; color: var(--muted); font-size: .8rem; line-height: 1.6; }
-.canagi-app[data-scene='entering'] .explorer-controls { animation: frame-in 400ms 600ms ease both; }
-.canagi-app[data-scene='entering'] .results-heading, .canagi-app[data-scene='entering'] .pay-disclaimer, .canagi-app[data-scene='entering'] .coverage-notice { animation: frame-in 400ms 850ms ease both; }
+
 @keyframes tray-appear { from { opacity: 0; translate: 0 12px; } to { opacity: 1; translate: 0 0; } }
 @media (max-width: 1100px) {
   .scope-dot { display: none; }
@@ -341,7 +340,7 @@ input:focus-visible, select:focus-visible, [tabindex='0']:focus-visible { outlin
 .site-nav .nav-links > .page-link { border-bottom: 0; }
 .page-theme.icon-button { width: 28px; height: 32px; border-radius: 0; background: none; }
 .page-theme:hover { color: var(--blue); }
-.canagi-app[data-scene='entering'] .page-navigation { animation: frame-in 450ms 850ms ease both; }
+
 .canagi-app[data-scene='returning'] .home-link::after { transform: scaleX(1); }
 .career-page-heading { padding: 1.5rem 0 1.7rem; }
 .career-page-heading h2 { margin: 0 0 .7rem; font-size: clamp(2.5rem, 4vw, 4.25rem); line-height: 1.08; letter-spacing: -.045em; font-weight: 400; }

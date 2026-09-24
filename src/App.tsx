@@ -1,8 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { Explorer } from './components/Explorer'
 import { Intro } from './components/Intro'
+import { ParticleStage } from './components/ParticleStage'
 import { SiteNav } from './components/SiteNav'
+import { StageShutter } from './components/StageShutter'
 import { createEntrySequence, type EntryScene } from './lib/entrySequence'
+import { setCharge } from './lib/motionStore'
+import { useMosaic } from './lib/useMosaic'
 import { useScrollEntry } from './lib/useScrollEntry'
 import { pageAddress, pageFromLocation, type ContentPage, type SitePage } from './lib/contentPages'
 
@@ -16,6 +21,8 @@ export default function App() {
   const [initialPage] = useState(() => pageFromLocation(window.location.hash, window.location.search))
   const [page, setPage] = useState<ContentPage>(initialPage === 'home' ? 'overview' : initialPage)
   const [scene, setScene] = useState<EntryScene>(initialPage === 'home' ? 'intro' : 'explorer')
+  const [booting, setBooting] = useState(initialPage === 'home')
+  const mosaic = useMosaic()
   const appRef = useRef<HTMLElement>(null)
   const initialScene = useRef(scene)
   const previousScene = useRef(scene)
@@ -76,9 +83,17 @@ export default function App() {
     }
   }, [running])
 
+  // The first-load entrance plays once; later arrivals use their own choreography.
+  useEffect(() => {
+    if (!booting) return
+    if (scene !== 'intro') { setBooting(false); return }
+    const timer = window.setTimeout(() => setBooting(false), 2600)
+    return () => window.clearTimeout(timer)
+  }, [booting, scene])
+
   useLayoutEffect(() => {
     if (scene === 'entering' || scene === 'arriving') window.scrollTo({ top: 0, behavior: 'instant' })
-    if (scene === 'arriving' || scene === 'intro') appRef.current?.style.setProperty('--entry-progress', '0')
+    if (scene === 'arriving' || scene === 'intro') { appRef.current?.style.setProperty('--entry-progress', '0'); setCharge(0) }
     if (scene === 'intro' && previousScene.current !== 'intro') {
       window.scrollTo({ top: 0, behavior: 'instant' })
       document.getElementById('intro-title')?.focus({ preventScroll: true })
@@ -114,17 +129,37 @@ export default function App() {
 
   const setEntryProgress = useCallback((progress: number) => {
     appRef.current?.style.setProperty('--entry-progress', String(progress))
+    setCharge(progress)
+  }, [])
+
+  // The new theme spreads from the toggle as a circle where view transitions exist.
+  const toggleTheme = useCallback(() => {
+    const apply = () => flushSync(() => setDarkMode(value => !value))
+    if (typeof document.startViewTransition !== 'function' || window.matchMedia('(prefers-reduced-motion: reduce)').matches) { apply(); return }
+    const box = document.activeElement?.closest('.page-theme')?.getBoundingClientRect()
+    const x = box ? box.left + box.width / 2 : window.innerWidth - 48, y = box ? box.top + box.height / 2 : 36
+    const radius = Math.hypot(Math.max(x, window.innerWidth - x), Math.max(y, window.innerHeight - y))
+    const transition = document.startViewTransition(apply)
+    transition.ready.then(() => {
+      document.documentElement.animate(
+        { clipPath: [`circle(0px at ${x}px ${y}px)`, `circle(${radius}px at ${x}px ${y}px)`] },
+        { duration: 720, easing: 'cubic-bezier(.7, 0, .25, 1)', pseudoElement: '::view-transition-new(root)' },
+      )
+    }).catch(() => undefined)
   }, [])
 
   useScrollEntry(scene === 'intro', enter, setEntryProgress)
 
   return (
-    <main className="canagi-app" data-scene={scene} ref={appRef}>
-      <SiteNav darkMode={darkMode} onThemeToggle={() => setDarkMode((value) => !value)} onNavigate={enter} disabled={scene !== 'intro'} />
+    <main className="canagi-app" data-scene={scene} data-boot={booting ? 'true' : undefined} data-page={page} ref={appRef}>
+      <ParticleStage scene={scene} page={page} darkMode={darkMode} mosaic={mosaic} />
+      <SiteNav darkMode={darkMode} onThemeToggle={toggleTheme} onNavigate={enter} disabled={scene !== 'intro'} />
       <div className="launch-scene" inert={scene !== 'intro'} aria-hidden={scene === 'entering' || scene === 'explorer' || scene === 'returning'}>
-        <Intro onEnter={() => enter()} busy={running} />
+        <Intro onEnter={() => enter()} busy={running} jobs={mosaic.jobs > 1000 ? mosaic.jobs : null} />
       </div>
-      <Explorer interactive={scene === 'explorer'} hidden={scene === 'intro' || scene === 'leaving' || scene === 'arriving'} page={page} onNavigate={navigate} onHome={home} darkMode={darkMode} onThemeToggle={() => setDarkMode(value => !value)} />
+      <Explorer interactive={scene === 'explorer'} hidden={scene === 'intro' || scene === 'leaving' || scene === 'arriving'} page={page} onNavigate={navigate} onHome={home} darkMode={darkMode} onThemeToggle={toggleTheme} />
+      <StageShutter scene={scene} mosaic={mosaic} />
+      <div className="scroll-progress" aria-hidden="true" />
       <p className="sr-only" role="status">{returning ? 'Returning home.' : running ? 'Opening the job market.' : scene === 'explorer' ? 'Job market ready.' : 'Launch page ready.'}</p>
     </main>
   )
