@@ -1,15 +1,15 @@
-import { useId, useLayoutEffect, useRef, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { ArrowRight, ArrowUpRight, Columns3, ExternalLink, X } from 'lucide-react'
 import type { Occupation } from '../types'
-import { annualPay, employmentValue, EXPOSURE_NOTE, exposureValue, fieldOf, isKnown, nocUrl, outlookOf, PAY_NOTE, publishedWage, SOURCES, teerOf } from '../lib/careers'
+import { annualPay, employmentValue, EXPOSURE_NOTE, exposureValue, fieldOf, isKnown, nocUrl, OUTLOOK_DEFINITIONS, outlookOf, PAY_NOTE, publishedWage, SOURCES, teerOf } from '../lib/careers'
 import { REVIEWED_PROFILES } from '../data/reviewedProfiles'
 import { CompareButton } from './CareerList'
 import { useCareerEvidence } from '../lib/useCareerEvidence'
 import { ExposureEvidence } from './ExposureEvidence'
 import { DATA_RELEASE } from '../data/dataRelease'
 
-export function Dialog({ title, eyebrow, wide = false, onClose, children }: { title: string; eyebrow: string; wide?: boolean; onClose: () => void; children: ReactNode }) {
+export function Dialog({ title, eyebrow, wide = false, lead, onClose, children }: { title: string; eyebrow: string; wide?: boolean; lead?: ReactNode; onClose: () => void; children: ReactNode }) {
   const ref = useRef<HTMLDialogElement>(null), titleId = useId()
   const triggerRef = useRef<HTMLElement | null>(null)
   useLayoutEffect(() => {
@@ -19,6 +19,8 @@ export function Dialog({ title, eyebrow, wide = false, onClose, children }: { ti
     const overflow = document.documentElement.style.overflow
     document.documentElement.style.overflow = 'hidden'
     dialog.showModal()
+    // Close is the first stop for keyboard users, even when header actions precede it.
+    dialog.querySelector<HTMLElement>('.dialog-close')?.focus({ preventScroll: true })
     return () => {
       dialog.close()
       document.documentElement.style.overflow = overflow
@@ -32,11 +34,24 @@ export function Dialog({ title, eyebrow, wide = false, onClose, children }: { ti
   }, [])
   return createPortal(<dialog className={`career-dialog ${wide ? 'career-dialog--wide' : ''}`} ref={ref} aria-labelledby={titleId} onCancel={e => { e.preventDefault(); onClose() }} onClick={e => { if (e.target === e.currentTarget) onClose() }}>
     <div className="dialog-content">
-      <header className="dialog-heading"><div><p className="utility-label">{eyebrow}</p><h2 id={titleId}>{title}</h2></div><button type="button" className="dialog-close" onClick={onClose} aria-label="Close panel" autoFocus><X size={22} /></button></header>
+      <header className="dialog-heading"><div><p className="utility-label">{eyebrow}</p><h2 id={titleId}>{title}</h2>{lead}</div><button type="button" className="dialog-close" onClick={onClose} aria-label="Close panel" autoFocus><X size={20} /></button></header>
       {children}
     </div>
   </dialog>, document.body)
 }
+const OUTLOOK_STEPS = OUTLOOK_DEFINITIONS.slice(0, 5)
+
+/** Where a relative 0 to 10 index sits on the map's colour scale. */
+function ExposureGauge({ value }: { value: number | null }) {
+  return <span className="exposure-gauge" aria-hidden="true">{value != null && <i style={{ left: `${value * 10}%` }} />}</span>
+}
+
+/** The five COPS categories from surplus to shortage, with this occupation's lit. */
+function OutlookSteps({ item }: { item: Occupation }) {
+  const current = outlookOf(item).id
+  return <span className="outlook-steps" aria-hidden="true">{OUTLOOK_STEPS.map(step => <i key={step.id} data-on={step.id === current || undefined} style={{ background: step.color }} />)}</span>
+}
+
 export function CareerResources({ item, compact = false }: { item: Occupation; compact?: boolean }) {
   return <div className={`career-resources ${compact ? 'compact-resources' : ''}`}>
     <a href={nocUrl(item.noc_code)} target="_blank" rel="noreferrer"><span><strong>Official NOC profile</strong>{!compact && <small>Duties, requirements & example titles · NOC {item.noc_code}</small>}</span><ExternalLink size={16} /></a>
@@ -56,9 +71,15 @@ export function CareerRequirements({ item }: { item: Occupation }) {
 export function OccupationDetails({ item, compared, onCompare, onClose }: { item: Occupation; compared: string[]; onCompare: (id: string) => void; onClose: () => void }) {
   const profile = REVIEWED_PROFILES[item.noc_code]
   const evidence = useCareerEvidence(item.noc_code)
-  return <Dialog title={item.title} eyebrow={`CAREER PROFILE · NOC ${item.noc_code}`} onClose={onClose}>
-    <div className="detail-context"><span>{fieldOf(item)?.[1] ?? 'Field not available'} · Canada</span><CompareButton item={item} selected={compared.includes(item.noc_code)} full={compared.length >= 3} onToggle={onCompare} /></div>
-    <dl className="detail-metrics"><div><dt>Annualized pay</dt><dd>{annualPay(item.pay)}</dd><small>CAD · {item.wage?.unit === 'year' ? 'Published annual median' : 'Hourly median × 2,080'}</small></div><div><dt>AI exposure index</dt><dd>{exposureValue(item.exposure)}</dd><small>Relative position · Experimental</small></div><div><dt>Projected outlook</dt><dd className="detail-outlook">{outlookOf(item).label}</dd><small>COPS · 2024 to 2033</small></div><div><dt>Covered employment</dt><dd>{employmentValue(item.jobs)}</dd><small>2023 · National · Not vacancies</small></div></dl>
+  const teer = teerOf(item)
+  const lead = <div className="detail-context"><span className="detail-tags"><span>{fieldOf(item)?.[1] ?? 'Field not available'}</span><span>TEER {teer?.id ?? '?'} · {teer?.short ?? 'Not available'}</span><span>Canada</span></span><CompareButton item={item} selected={compared.includes(item.noc_code)} full={compared.length >= 3} onToggle={onCompare} /></div>
+  return <Dialog title={item.title} eyebrow={`CAREER PROFILE · NOC ${item.noc_code}`} lead={lead} onClose={onClose}>
+    <dl className="detail-metrics">
+      <div className="detail-metric"><dt>Annualized pay</dt><dd>{annualPay(item.pay)}</dd><small>CAD · {item.wage?.unit === 'year' ? 'Published annual median' : 'Hourly median × 2,080'}</small></div>
+      <div className="detail-metric"><dt>AI exposure index</dt><dd>{exposureValue(item.exposure)}<ExposureGauge value={item.exposure} /></dd><small>Relative position · Experimental</small></div>
+      <div className="detail-metric"><dt>Projected outlook</dt><dd className="detail-outlook">{outlookOf(item).label}<OutlookSteps item={item} /></dd><small>COPS · 2024 to 2033 · surplus to shortage</small></div>
+      <div className="detail-metric"><dt>Covered employment</dt><dd>{employmentValue(item.jobs)}</dd><small>2023 · National · Not vacancies</small></div>
+    </dl>
     <div className="published-wage"><span>Published national median</span><strong>{publishedWage(item)}</strong><span>{item.wage?.source} · {item.wage?.reference}</span></div>
     <section className="detail-section"><h3>The work</h3><p>{evidence.data?.description ?? profile?.description ?? 'Loading the official occupation description.'}</p>{evidence.data?.duties.length ? <details className="detail-source-note"><summary>Read the occupation’s main duties</summary><ul className="requirements-list">{evidence.data.duties.map((d, i) => <li key={i}>{d}</li>)}</ul></details> : null}<p className="source-caption">Source: <a href={nocUrl(item.noc_code)} target="_blank" rel="noreferrer">NOC 2021 v1.0</a>, checked {DATA_RELEASE.checked}. Requirements vary by specialization and jurisdiction.</p>{evidence.error && <p role="alert">The detailed source file did not load. The official NOC link remains available.</p>}</section>
     <ExposureEvidence item={item} evidence={evidence.data} error={evidence.error} />
@@ -70,27 +91,34 @@ export function OccupationDetails({ item, compared, onCompare, onClose }: { item
 }
 export function ComparisonTray({ selected, matching, onRemove, onClear, onOpen }: { selected: Occupation[]; matching: Set<string>; onRemove: (id: string) => void; onClear: () => void; onOpen: () => void }) {
   if (!selected.length) return null
-  return <aside className="comparison-tray" aria-label="Selected careers for comparison"><div className="tray-label"><Columns3 size={18} /><strong>{selected.length}/3</strong><span>CAREERS</span></div><div className="tray-selections">{selected.map(item => <div className="tray-career" key={item.noc_code}><div><span className="tray-title">{item.title}</span>{!matching.has(item.noc_code) && <small>Outside current filters</small>}</div><button type="button" onClick={() => onRemove(item.noc_code)} aria-label={`Remove ${item.title} from comparison`}><X size={15} /></button></div>)}</div><div className="tray-actions"><button type="button" className="text-button" onClick={onClear}>Clear</button><button type="button" className="primary-button" disabled={selected.length < 2} onClick={onOpen}>Compare{selected.length < 2 ? ' · add one more' : ` ${selected.length}`}<ArrowRight size={16} /></button></div></aside>
+  return <aside className="comparison-tray" aria-label="Selected careers for comparison"><div className="tray-label"><Columns3 size={18} /><strong>{selected.length}/3</strong><span>CAREERS</span></div><div className="tray-selections">{selected.map((item, index) => <div className="tray-career" key={item.noc_code} style={{ '--series': `var(--series-${index})` } as CSSProperties}><b aria-hidden="true">{String.fromCharCode(65 + index)}</b><div><span className="tray-title">{item.title}</span>{!matching.has(item.noc_code) && <small>Outside current filters</small>}</div><button type="button" onClick={() => onRemove(item.noc_code)} aria-label={`Remove ${item.title} from comparison`}><X size={15} /></button></div>)}</div><div className="tray-actions"><button type="button" className="text-button" onClick={onClear}>Clear</button><button type="button" className="primary-button" disabled={selected.length < 2} onClick={onOpen}>Compare{selected.length < 2 ? ' · add one more' : ` ${selected.length}`}<ArrowRight size={16} /></button></div></aside>
 }
 export function OccupationComparison({ items, onClose }: { items: Occupation[]; onClose: () => void }) {
   const knownPay = items.filter(x => isKnown(x.pay)), knownAi = items.filter(x => isKnown(x.exposure))
   const topPay = knownPay.length > 1 ? Math.max(...knownPay.map(x => x.pay!)) : null
   const lowAi = knownAi.length > 1 ? Math.min(...knownAi.map(x => x.exposure!)) : null
-  const row = (label: string, render: (item: Occupation) => ReactNode) => <tr key={label}><th scope="row">{label}</th>{items.map(item => <td key={item.noc_code}>{render(item)}</td>)}</tr>
+  const payScale = Math.max(1, ...knownPay.map(x => x.pay!))
+  const jobScale = Math.max(1, ...items.map(x => x.jobs ?? 0))
+  const series = (index: number) => ({ '--series': `var(--series-${index})` }) as CSSProperties
+  const row = (label: string, render: (item: Occupation, index: number) => ReactNode, kind = '') => <tr key={label} className={kind}><th scope="row">{label}</th>{items.map((item, index) => <td key={item.noc_code} style={series(index)}>{render(item, index)}</td>)}</tr>
+  const bar = (value: number | null, scale: number) => <span className="compare-bar" aria-hidden="true"><i style={{ width: `${value == null ? 0 : Math.max(2, (value / scale) * 100)}%` }} /></span>
   return <Dialog title="Different careers. Clearer trade offs." eyebrow={`COMPARE ${items.length} OCCUPATIONS · CANADA`} wide onClose={onClose}>
     <p className="dialog-intro">The same national snapshot, side by side. This comparison does not choose a winner or predict your fit.</p>
+    {(topPay != null || lowAi != null) && <div className="comparison-takeaways"><h3 className="sr-only">A few factual differences</h3>
+      {topPay != null && <div className="takeaway"><span className="utility-label">Highest annualized pay</span><strong>{annualPay(topPay)}</strong><p>{knownPay.filter(x => x.pay === topPay).map(x => x.title).join('; ')}</p><small>Among the {knownPay.length} careers with pay data. Hourly sources assume 2,080 hours; source reference periods can differ.</small></div>}
+      {lowAi != null && <div className="takeaway"><span className="utility-label">Lowest relative AI exposure</span><strong>{lowAi}/10</strong><p>{knownAi.filter(x => x.exposure === lowAi).map(x => x.title).join('; ')}</p><small>Among the {knownAi.length} careers with scores. This does not establish job security.</small></div>}
+    </div>}
     <p className="mobile-table-hint">Swipe across to compare each career →</p>
-    <div className="comparison-scroll" role="region" tabIndex={0} aria-label="Side by side career comparison; scroll horizontally for all careers"><table className="comparison-table" data-careers={items.length}><caption className="sr-only">Occupation comparison. Each column is one selected occupation.</caption><thead><tr><th scope="col">CAREER</th>{items.map(item => <th scope="col" key={item.noc_code}><span className="utility-label">NOC {item.noc_code}</span><h3>{item.title}</h3></th>)}</tr></thead><tbody>
-      {row('Annualized pay · CAD', item => <><strong className="compare-number">{annualPay(item.pay)}</strong><small>{publishedWage(item)} published · {item.wage?.reference}</small></>)}
-      {row('Projected outlook · 2024 to 2033', item => <span className="outlook-label"><i style={{ background: outlookOf(item).color }} />{outlookOf(item).label}</span>)}
-      {row('AI exposure index · relative 0 to 10', item => <><strong className="compare-number">{exposureValue(item.exposure)}</strong><small>{item.ai?.explanation}</small></>)}
-      {row('Covered employment · national, 2023', item => <>{employmentValue(item.jobs)}<small>Not current vacancies</small></>)}
+    <div className="comparison-scroll" role="region" tabIndex={0} aria-label="Side by side career comparison; scroll horizontally for all careers"><table className="comparison-table" data-careers={items.length}><caption className="sr-only">Occupation comparison. Each column is one selected occupation.</caption><thead><tr><th scope="col">CAREER</th>{items.map((item, index) => <th scope="col" key={item.noc_code} style={series(index)}><span className="compare-card-top"><b>{String.fromCharCode(65 + index)}</b><span className="utility-label">NOC {item.noc_code}</span></span><h3>{item.title}</h3><span className="compare-card-field">{fieldOf(item)?.[1] ?? 'Field not available'}</span></th>)}</tr></thead><tbody>
+      {row('Annualized pay · CAD', item => <><strong className="compare-number">{annualPay(item.pay)}</strong>{bar(item.pay, payScale)}<small>{publishedWage(item)} published · {item.wage?.reference}</small></>, 'is-metric')}
+      {row('Projected outlook · 2024 to 2033', item => <><span className="outlook-label"><i style={{ background: outlookOf(item).color }} />{outlookOf(item).label}</span><OutlookSteps item={item} /></>, 'is-metric')}
+      {row('AI exposure index · relative 0 to 10', item => <><strong className="compare-number">{exposureValue(item.exposure)}</strong><ExposureGauge value={item.exposure} /><small>{item.ai?.explanation}</small></>, 'is-metric')}
+      {row('Covered employment · national, 2023', item => <><strong className="compare-number compare-number--small">{employmentValue(item.jobs)}</strong>{bar(item.jobs, jobScale)}<small>Not current vacancies</small></>, 'is-metric')}
       {row('Education, training & experience', item => <CareerRequirements item={item} />)}
       {row('Career field · NOC broad group', item => fieldOf(item)?.[2] ?? 'Not available')}
       {row('The work', item => <CareerWorkSummary item={item} />)}
       {row('Explore this career', item => <CareerResources item={item} compact />)}
     </tbody></table></div>
-    <div className="comparison-takeaways"><h3>A few factual differences</h3>{topPay != null && <p>The highest annualized pay among the {knownPay.length} careers with pay data is {annualPay(topPay)}: {knownPay.filter(x => x.pay === topPay).map(x => x.title).join('; ')}. Hourly sources assume 2,080 hours; source reference periods can differ.</p>}{lowAi != null && <p>The lowest relative exposure index among the {knownAi.length} careers with scores is {lowAi}/10: {knownAi.filter(x => x.exposure === lowAi).map(x => x.title).join('; ')}. This does not establish job security.</p>}</div>
     <p className="table-footnote">{PAY_NOTE}</p><p className="table-footnote">{EXPOSURE_NOTE} Employment: 2023. Outlook uses <a href={SOURCES.cops} target="_blank" rel="noreferrer">COPS 2024 to 2033</a> (published January 30, 2025). Pathways use NOC 2021. Sources checked {DATA_RELEASE.checked}.</p>
   </Dialog>
 }

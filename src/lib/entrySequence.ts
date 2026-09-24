@@ -1,11 +1,11 @@
 export type EntryScene = 'intro' | 'leaving' | 'entering' | 'explorer' | 'returning' | 'arriving'
 
-// The launch formation flattens into the field mosaic, which covers the swap.
-export const EXIT_DURATION_MS = 1400
-// The mosaic folds away while the visualizer rises in behind it.
-export const ENTER_DURATION_MS = 2400
-// Home reopens the mosaic and the formation flies back to the launch page.
-export const HOME_DURATION_MS = 2000
+// The launch copy lifts away while the formation floods the screen with points.
+export const EXIT_DURATION_MS = 900
+// The next page rises at once while the points gather into its heading.
+export const ENTER_DURATION_MS = 1300
+// Home gathers the points back into the launch formation.
+export const HOME_DURATION_MS = 1300
 
 interface SequenceClock {
   set: (callback: () => void, delay: number) => number

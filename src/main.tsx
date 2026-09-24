@@ -9,6 +9,7 @@ import './explorer.css'
 import './research.css'
 import './refinements.css'
 import './motion.css'
+import './workspace.css'
 import App from './App'
 
 createRoot(document.getElementById('root')!).render(

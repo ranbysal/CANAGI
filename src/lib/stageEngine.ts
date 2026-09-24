@@ -2,12 +2,11 @@ import type { Mosaic } from './mosaicLayout'
 import { createRandom, FORMATION_WIDTH, leafFormation, mosaicFormation, networkFormation, skylineFormation } from './stageShapes'
 
 /**
- * The launch stage: one WebGL canvas behind the page, anchored to DOM boxes.
- * Points spring between four formations (Canada, Today, Tomorrow, Together);
- * the last formation can flatten to fill the viewport so the DOM shutter tiles
- * land exactly where its dots are.
+ * The stage: one WebGL canvas behind every page, anchored to a DOM box.
+ * Points spring between four formations (Canada, Today, Tomorrow, Together).
+ * Between pages the points flood the screen, then gather into the next page.
  */
-export type StageMode = 'intro' | 'leaving' | 'entering' | 'explorer' | 'returning' | 'arriving' | 'hidden'
+export type StageMode = 'intro' | 'leaving' | 'entering' | 'page' | 'page-out' | 'page-in' | 'returning' | 'arriving' | 'hidden'
 
 const FOV = (34 * Math.PI) / 180
 const CAMERA = 6
@@ -51,7 +50,7 @@ void main() {
   gl_PointSize = max(1.0, size * (${CAMERA.toFixed(1)} / depth) * (1.0 + blur * 1.5));
   vec3 ink = mix(uInk0, uInk1, aRandom.y);
   ink = mix(ink, uInk2, aRandom.x * aRandom.x * 0.8);
-  vColour = mix(ink, aMapColour.rgb, mapMix);
+  vColour = ink;
   float twinkle = 1.0 - sparkle * (0.35 + 0.35 * sin(uTime * 2.3 + aRandom.x * 40.0)) * (1.0 - mapMix);
   vAlpha = aAlpha * uAlpha * twinkle * mix(1.0, aMapColour.a, mapMix) * (1.0 - uDisperse * 0.85) / (1.0 + blur * blur * 3.0);
   vSoft = clamp(blur * 0.6, 0.0, 1.0);
@@ -117,6 +116,8 @@ interface Frame {
   anchor: Rect | null; focus: number; alpha: number; target: number; rate: number
   spring: number; waves: number; disperse: number; noise: number; lift: number
 }
+interface Jump { from: number; to: number; start: number; duration: number }
+type AnchorKind = 'intro' | 'page'
 type Program = { program: WebGLProgram; uniforms: Record<string, WebGLUniformLocation | null> }
 
 const THEMES = {
@@ -124,7 +125,14 @@ const THEMES = {
   dark: { ink: [[0.667, 0.66, 1], [0.49, 0.47, 1], [0.9, 0.9, 1]], glow: 0.55, line: [0.62, 0.61, 1], lineAlpha: 0.14, size: 2.2 },
 }
 
-export interface StageAnchors { intro: () => Element | null; explorer: () => Element | null }
+// Morphs between formations while points flood out or gather in (ms).
+const JUMPS: Partial<Record<StageMode, [number, number]>> = {
+  leaving: [LAST_STAGE, 520], entering: [0, 850], 'page-out': [LAST_STAGE, 400], 'page-in': [0, 760], returning: [LAST_STAGE, 520], arriving: [0, 850],
+}
+// A little past the edges, so the flood reaches every corner.
+const FLOOD_SCALE = 1.08
+
+export interface StageAnchors { intro: () => Element | null; page: () => Element | null }
 
 export class StageEngine {
   private readonly canvas: HTMLCanvasElement
@@ -151,18 +159,21 @@ export class StageEngine {
   private mapSpacing = 0.02
   private mosaic: Mosaic | null = null
   private mode: StageMode = 'hidden'
-  private previousMode: StageMode = 'hidden'
   private modeStart = 0
   private modeAlpha = 0
   private appliedAlpha = 0
+  private appliedDisperse = 0
+  private modeDisperse = 0
   private fadeInAt = -Infinity
   private stage = 0
+  private jump: Jump | null = null
+  private settled = false
+  private readonly anchorCache = new Map<AnchorKind, { element: Element; x: number; top: number; w: number; h: number; at: number }>()
   private dark = false
   private reduced = false
   private charge = () => 0
   private pointer = { x: 0, y: 0, tx: 0, ty: 0, strength: 0, target: 0 }
   private pose = { x: 0, y: 0, scale: 1 }
-  private preparedReturn = false
   private time = 0
   private last = 0
   private raf = 0
@@ -200,6 +211,7 @@ export class StageEngine {
     this.onPointer = this.onPointer.bind(this)
     this.onLost = this.onLost.bind(this)
     this.onRestored = this.onRestored.bind(this)
+    this.onResize = this.onResize.bind(this)
     this.wake = this.wake.bind(this)
     this.tick = this.tick.bind(this)
   }
@@ -211,7 +223,7 @@ export class StageEngine {
     window.addEventListener('pointermove', this.onPointer, { passive: true })
     window.addEventListener('pointerdown', this.onPointer, { passive: true })
     window.addEventListener('scroll', this.wake, { passive: true })
-    window.addEventListener('resize', this.wake)
+    window.addEventListener('resize', this.onResize)
     this.canvas.addEventListener('webglcontextlost', this.onLost)
     this.canvas.addEventListener('webglcontextrestored', this.onRestored)
     this.wake()
@@ -224,7 +236,7 @@ export class StageEngine {
     window.removeEventListener('pointermove', this.onPointer)
     window.removeEventListener('pointerdown', this.onPointer)
     window.removeEventListener('scroll', this.wake)
-    window.removeEventListener('resize', this.wake)
+    window.removeEventListener('resize', this.onResize)
     this.canvas.removeEventListener('webglcontextlost', this.onLost)
     this.canvas.removeEventListener('webglcontextrestored', this.onRestored)
     this.gl?.getExtension('WEBGL_lose_context')?.loseContext()
@@ -233,20 +245,29 @@ export class StageEngine {
   setMode(mode: StageMode) {
     if (mode === this.mode) return
     const now = performance.now()
-    this.previousMode = this.mode
+    const from = this.mode
     this.mode = mode
     this.modeStart = now
     this.modeAlpha = this.appliedAlpha
-    this.preparedReturn = false
-    const from = this.previousMode
-    // Arriving somewhere new after the page was covered: gather from a scattered cloud.
-    if ((mode === 'entering' || mode === 'explorer') && from !== 'entering') this.assemble(now, 0)
-    if (mode === 'intro' && (from === 'returning' || from === 'hidden')) this.assemble(now, this.charge() * LAST_STAGE)
+    this.modeDisperse = this.appliedDisperse
+    this.anchorCache.clear()
+    this.unsettle()
+    const jump = JUMPS[mode]
+    if (jump && !this.reduced) {
+      const origin = this.jump ? this.jump.to : Math.round(this.stage)
+      this.jump = { from: origin, to: jump[0], start: now, duration: jump[1] }
+    } else {
+      this.jump = null
+      // Arriving without a flood (first load, reduced motion or a skipped transition): gather from a cloud.
+      const gathered = from === 'entering' || from === 'page-in' || from === 'arriving' || from === 'page'
+      if (mode === 'page' && !gathered) this.assemble(now, 0)
+      if (mode === 'intro' && from !== 'arriving') this.assemble(now, this.charge() * LAST_STAGE)
+    }
     this.wake()
   }
 
   setTheme(dark: boolean) { this.dark = dark; this.wake() }
-  setReducedMotion(reduced: boolean) { this.reduced = reduced; this.wake() }
+  setReducedMotion(reduced: boolean) { this.reduced = reduced; this.unsettle(); this.wake() }
 
   setMosaic(mosaic: Mosaic) {
     if (this.mosaic === mosaic) return
@@ -259,6 +280,7 @@ export class StageEngine {
       this.gl.bindBuffer(this.gl.ARRAY_BUFFER, this.colourBuffer)
       this.gl.bufferData(this.gl.ARRAY_BUFFER, this.mapColour, this.gl.STATIC_DRAW)
     }
+    this.unsettle()
     this.wake()
   }
 
@@ -268,6 +290,14 @@ export class StageEngine {
     this.running = true
     this.last = performance.now()
     this.raf = requestAnimationFrame(this.tick)
+  }
+
+  private unsettle() { this.settled = false }
+
+  private onResize() {
+    this.anchorCache.clear()
+    this.unsettle()
+    this.wake()
   }
 
   private initialise() {
@@ -369,6 +399,7 @@ export class StageEngine {
   private assemble(now: number, stage: number) {
     this.stage = stage
     this.fadeInAt = now
+    this.unsettle()
     const k = Math.round(stage)
     const formation = this.formations[k]
     for (let i = 0; i < this.count; i++) {
@@ -382,65 +413,69 @@ export class StageEngine {
     }
   }
 
-  /** Place the flattened mosaic under the closed shutter before Home reopens it. */
-  private coverWithMosaic() {
-    this.stage = LAST_STAGE
-    this.positions.set(this.formations[LAST_STAGE])
-    this.velocities.fill(0)
-    this.mapMix.fill(1)
+  /**
+   * Anchor boxes are measured at most a few times a second; scrolling only
+   * shifts them, so no layout is forced on every frame.
+   */
+  private anchor(kind: AnchorKind): Rect | null {
+    const now = performance.now()
+    let entry = this.anchorCache.get(kind)
+    if (!entry || !entry.element.isConnected || now - entry.at > 500) {
+      const element = kind === 'intro' ? this.anchors.intro() : this.anchors.page()
+      if (!element) return null
+      const box = element.getBoundingClientRect()
+      if (box.width < 2 || box.height < 2) return null
+      entry = { element, x: box.left, top: box.top + window.scrollY, w: box.width, h: box.height, at: now }
+      this.anchorCache.set(kind, entry)
+    }
+    return { x: entry.x, y: entry.top - window.scrollY, w: entry.w, h: entry.h }
   }
 
-  private rect(element: Element | null): Rect | null {
-    if (!element) return null
-    const box = element.getBoundingClientRect()
-    return box.width < 2 || box.height < 2 ? null : { x: box.left, y: box.top, w: box.width, h: box.height }
-  }
+  /** Short phones have no free space beside the launch copy, so the formation becomes a backdrop. */
+  private launchStrength() { return this.cssWidth < 620 && this.cssHeight < 740 ? 0.28 : 1 }
+
+  /** On narrow screens the page formation sits behind the copy, so it steps back. */
+  private pageStrength() { return this.cssWidth < 760 ? 0.3 : 1 }
 
   private frame(now: number): Frame {
     const t = now - this.modeStart
-    const charge = this.charge() * LAST_STAGE
     const fade = this.reduced ? 1 : easeOut(clamp((now - this.fadeInAt) / 1100))
-    const intro = () => this.rect(this.anchors.intro())
+    const blend = (rest: number, focus: number) => rest + (1 - rest) * focus
+    const rest = (): Frame => {
+      const scroll = window.scrollY
+      const disperse = smooth(260, 700, scroll)
+      const anchor = this.anchor('page')
+      return { anchor, focus: 0, alpha: anchor ? fade * this.pageStrength() : 0, target: 0, rate: 4, spring: 1.1, waves: fade * (1 - clamp(scroll / 380)), disperse, noise: 1, lift: scroll * 0.42 }
+    }
     switch (this.mode) {
       case 'intro':
-        return { anchor: intro(), focus: 0, alpha: fade * this.launchStrength(), target: charge, rate: 4.2, spring: 1, waves: fade, disperse: 0, noise: 1, lift: 0 }
+        return { anchor: this.anchor('intro'), focus: 0, alpha: fade * this.launchStrength(), target: this.charge() * LAST_STAGE, rate: 4.2, spring: 1, waves: fade, disperse: 0, noise: 1, lift: 0 }
+      case 'page':
+        return rest()
       case 'leaving': {
-        const focus = easeInOut(clamp((t - 160) / 900))
-        const strength = this.launchStrength()
-        return { anchor: intro(), focus, alpha: (strength + (1 - strength) * focus) * (1 - clamp((t - 1130) / 250)), target: LAST_STAGE, rate: 11, spring: 2.4, waves: 1 - clamp(t / 450), disperse: 0, noise: 1 - focus, lift: 0 }
+        const focus = easeInOut(clamp((t - 40) / 800))
+        return { anchor: this.anchor('intro'), focus, alpha: blend(this.launchStrength(), focus), target: LAST_STAGE, rate: 8, spring: 2.2, waves: 1 - clamp(t / 350), disperse: 0, noise: 1, lift: 0 }
       }
-      case 'entering': {
-        const anchor = this.rect(this.anchors.explorer())
-        return { anchor, focus: 0, alpha: anchor ? easeOut(clamp((t - 380) / 1000)) * this.headingStrength() : 0, target: 0, rate: 4, spring: 1.15, waves: easeOut(clamp((t - 650) / 1000)), disperse: 0, noise: 1, lift: 0 }
-      }
-      case 'explorer': {
-        const scroll = window.scrollY
-        const anchor = this.rect(this.anchors.explorer())
-        return {
-          anchor, focus: 0, alpha: anchor ? fade * this.headingStrength() : 0, target: clamp(scroll / 150, 0, LAST_STAGE), rate: 4, spring: 1.1,
-          waves: fade * (1 - clamp(scroll / 420)), disperse: smooth(330, 760, scroll), noise: 1, lift: scroll * 0.42,
-        }
-      }
+      case 'page-out':
       case 'returning': {
-        if (t > 1180 && !this.preparedReturn) { this.preparedReturn = true; this.coverWithMosaic() }
-        const covered = this.preparedReturn
-        return { anchor: covered ? null : this.rect(this.anchors.explorer()), focus: covered ? 1 : 0, alpha: covered ? 0 : this.modeAlpha * (1 - clamp(t / 380)), target: covered ? LAST_STAGE : this.stage, rate: 6, spring: 1.4, waves: 0, disperse: 0, noise: 0, lift: 0 }
+        const focus = easeInOut(clamp(t / (this.mode === 'page-out' ? 600 : 820)))
+        const base = rest()
+        return { ...base, focus, alpha: blend(this.modeAlpha, focus), target: LAST_STAGE, spring: 2.2, waves: base.waves * (1 - clamp(t / 300)), disperse: this.modeDisperse * (1 - focus) }
+      }
+      case 'entering':
+      case 'page-in': {
+        const focus = 1 - easeInOut(clamp(t / (this.mode === 'page-in' ? 1000 : 1150)))
+        const anchor = this.anchor('page')
+        return { anchor, focus, alpha: anchor ? blend(this.pageStrength(), focus) : 1 - clamp(t / 400), target: 0, rate: 4, spring: 1.8, waves: easeOut(clamp((t - 520) / 800)), disperse: 0, noise: 1, lift: 0 }
       }
       case 'arriving': {
-        if (!this.preparedReturn) { this.preparedReturn = true; this.coverWithMosaic() }
-        const focus = 1 - easeInOut(clamp((t - 300) / 1150)), strength = this.launchStrength()
-        return { anchor: intro(), focus, alpha: strength + (1 - strength) * focus, target: t < 520 ? LAST_STAGE : 0, rate: 2.8, spring: 1.5, waves: easeOut(clamp((t - 950) / 900)), disperse: 0, noise: 1 - focus, lift: 0 }
+        const focus = 1 - easeInOut(clamp(t / 1150))
+        return { anchor: this.anchor('intro'), focus, alpha: blend(this.launchStrength(), focus), target: 0, rate: 4, spring: 1.8, waves: easeOut(clamp((t - 600) / 700)), disperse: 0, noise: 1, lift: 0 }
       }
       default:
         return { anchor: null, focus: 0, alpha: this.modeAlpha * (1 - clamp(t / 320)), target: this.stage, rate: 4, spring: 1, waves: 0, disperse: 0, noise: 0, lift: 0 }
     }
   }
-
-  /** Short phones have no free space beside the copy, so the formation becomes a backdrop. */
-  private launchStrength() { return this.cssWidth < 620 && this.cssHeight < 740 ? 0.28 : 1 }
-
-  /** On narrow screens the heading formation sits behind the copy, so it steps back. */
-  private headingStrength() { return this.cssWidth < 760 ? 0.3 : 1 }
 
   private tick(now: number) {
     if (this.disposed || this.lost || !this.gl) { this.running = false; return }
@@ -449,20 +484,31 @@ export class StageEngine {
     if (!this.reduced) this.time += dt
     const frame = this.frame(now)
     this.resize()
-    this.stage += (frame.target - this.stage) * (this.reduced ? 1 : 1 - Math.exp(-frame.rate * dt))
-    if (Math.abs(frame.target - this.stage) < 0.0005) this.stage = frame.target
+    if (this.jump && now - this.jump.start >= this.jump.duration) {
+      this.stage = this.jump.to
+      this.jump = null
+    }
+    if (!this.jump) {
+      const before = this.stage
+      this.stage += (frame.target - this.stage) * (this.reduced ? 1 : 1 - Math.exp(-frame.rate * dt))
+      if (Math.abs(frame.target - this.stage) < 0.0005) this.stage = frame.target
+      if (this.stage !== before) this.unsettle()
+    }
     const pointer = this.pointer
     const follow = this.reduced ? 1 : 1 - Math.exp(-4 * dt)
     pointer.x += (pointer.tx - pointer.x) * follow
     pointer.y += (pointer.ty - pointer.y) * follow
     pointer.strength += (pointer.target - pointer.strength) * follow
-    this.simulate(dt, frame)
-    const visible = this.render(frame)
+    // At rest the points only breathe in the shader: skip the simulation and upload.
+    const uploaded = !this.settled
+    if (uploaded) this.simulate(dt, frame, now)
+    const visible = this.render(frame, uploaded)
     this.appliedAlpha = frame.alpha
-    // Transitions and fade-ins keep the loop alive even while nothing is visible yet.
-    const moving = this.mode === 'leaving' || this.mode === 'entering' || this.mode === 'returning' || this.mode === 'arriving' || now - this.fadeInAt < 1300
-    const idle = this.reduced && !moving && Math.abs(frame.target - this.stage) < 0.001
-    if ((visible || moving) && !idle) {
+    this.appliedDisperse = frame.disperse
+    const moving = this.mode !== 'intro' && this.mode !== 'page' && this.mode !== 'hidden'
+    const fading = now - this.fadeInAt < 1300
+    const idle = this.reduced && !moving && this.settled
+    if ((visible || moving || fading) && !idle) {
       this.raf = requestAnimationFrame(this.tick)
     } else {
       this.running = false
@@ -472,7 +518,8 @@ export class StageEngine {
   private resize() {
     const width = this.canvas.clientWidth, height = this.canvas.clientHeight
     const pixels = width * height
-    const ratio = Math.min(window.devicePixelRatio || 1, pixels > 2_400_000 ? 1.5 : 2)
+    // Dots stay crisp at 1.75x; large displays trade a little density for frame time.
+    const ratio = Math.min(window.devicePixelRatio || 1, pixels > 2_000_000 ? 1.25 : 1.75)
     if (width === this.cssWidth && height === this.cssHeight && ratio === this.ratio) return
     this.cssWidth = width
     this.cssHeight = height
@@ -481,7 +528,7 @@ export class StageEngine {
     this.canvas.height = Math.max(1, Math.round(height * ratio))
   }
 
-  private simulate(dt: number, frame: Frame) {
+  private simulate(dt: number, frame: Frame, now: number) {
     const n = this.count, s = this.stage
     const positions = this.positions, velocities = this.velocities, state = this.state
     const flow = this.flow, formations = this.formations, order = this.order, randoms = this.randoms
@@ -489,10 +536,17 @@ export class StageEngine {
     const mapRate = 1 - Math.exp(-5 * dt)
     const time = this.time
     const snap = this.reduced
+    const jump = this.jump
+    const progress = jump ? easeInOut(clamp((now - jump.start) / jump.duration)) : 0
+    let energy = 0, flowing = false
     for (let i = 0; i < n; i++) {
       const i3 = i * 3, i4 = i * 4
-      let k = Math.floor(s + 1 - order[i])
-      if (k < 0) k = 0; else if (k > LAST_STAGE) k = LAST_STAGE
+      let k: number
+      if (jump) k = progress >= order[i] ? jump.to : jump.from
+      else {
+        k = Math.floor(s + 1 - order[i])
+        if (k < 0) k = 0; else if (k > LAST_STAGE) k = LAST_STAGE
+      }
       const formation = formations[k]
       let tx = formation[i3], ty = formation[i3 + 1], tz = formation[i3 + 2]
       let alpha = 1
@@ -500,6 +554,7 @@ export class StageEngine {
       if (k === 2) {
         const fx = flow[i4], fy = flow[i4 + 1], fz = flow[i4 + 2]
         if (fx !== 0 || fy !== 0 || fz !== 0) {
+          flowing = true
           const start = flow[i4 + 3]
           const phase = (start + time * 0.11) % 1
           tx += fx * (phase - start); ty += fy * (phase - start); tz += fz * (phase - start)
@@ -523,18 +578,22 @@ export class StageEngine {
         vy += (stiffness * dy - damping * vy + (dz * ax - dx * az) * curl) * dt
         vz += (stiffness * dz - damping * vz + (dx * ay - dy * ax) * curl) * dt
         px += vx * dt; py += vy * dt; pz += vz * dt
+        const e = dx * dx + dy * dy + dz * dz + (vx * vx + vy * vy + vz * vz) * 0.01
+        if (e > energy) energy = e
       }
       positions[i3] = px; positions[i3 + 1] = py; positions[i3 + 2] = pz
       velocities[i3] = vx; velocities[i3 + 1] = vy; velocities[i3 + 2] = vz
       const mapTarget = k === LAST_STAGE ? 1 : 0
       const mix = snap ? mapTarget : this.mapMix[i] + (mapTarget - this.mapMix[i]) * mapRate
+      if (Math.abs(mapTarget - mix) > 0.001) energy = Math.max(energy, 1)
       this.mapMix[i] = mix
       const o = i * 5
       state[o] = px; state[o + 1] = py; state[o + 2] = pz; state[o + 3] = mix; state[o + 4] = alpha
     }
+    this.settled = !jump && !flowing && energy < 2e-7
   }
 
-  private render(frame: Frame) {
+  private render(frame: Frame, uploaded: boolean) {
     const gl = this.gl!, width = this.canvas.width, height = this.canvas.height
     gl.viewport(0, 0, width, height)
     gl.clearColor(0, 0, 0, 0)
@@ -543,7 +602,7 @@ export class StageEngine {
 
     const aspect = this.cssWidth / this.cssHeight
     const worldPerPixel = WORLD_HEIGHT / this.cssHeight
-    const focusScale = (WORLD_HEIGHT * aspect) / FORMATION_WIDTH
+    const focusScale = (WORLD_HEIGHT * aspect * FLOOD_SCALE) / FORMATION_WIDTH
     let anchorScale = focusScale * 0.4, anchorX = 0, anchorY = 0
     if (frame.anchor) {
       const a = frame.anchor
@@ -562,7 +621,9 @@ export class StageEngine {
     if (Math.abs(y) - scale * 1.6 > WORLD_HEIGHT / 2 || frame.disperse >= 0.999) return false
 
     // Each formation has its own resting attitude; the pointer adds parallax.
-    const s = this.stage, time = this.time
+    const jump = this.jump
+    const s = jump ? jump.from + (jump.to - jump.from) * easeInOut(clamp((performance.now() - jump.start) / jump.duration)) : this.stage
+    const time = this.time
     const weights = [0, 1, 2, 3].map(k => Math.max(0, 1 - Math.abs(s - k)))
     const yaws = [-0.3 + Math.sin(time * 0.23) * 0.24, -0.44 + Math.sin(time * 0.2) * 0.16, -0.95 + Math.sin(time * 0.16) * 0.3, -0.46 + Math.sin(time * 0.25) * 0.06]
     const pitches = [0.06 + Math.sin(time * 0.17) * 0.05, 0.15, 0.3 + Math.sin(time * 0.3) * 0.04, 0.2]
@@ -599,8 +660,10 @@ export class StageEngine {
       const { program, uniforms } = this.points
       gl.useProgram(program)
       gl.bindVertexArray(this.pointVao)
-      gl.bindBuffer(gl.ARRAY_BUFFER, this.stateBuffer)
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.state)
+      if (uploaded) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.stateBuffer)
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.state)
+      }
       gl.uniformMatrix4fv(uniforms.uViewProjection, false, viewProjection)
       gl.uniformMatrix4fv(uniforms.uModel, false, model)
       gl.uniform1f(uniforms.uTime, time)

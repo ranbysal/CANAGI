@@ -1,9 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
 
 export type SurfacePhase = 'idle' | 'out' | 'in'
-// Moving between pages is quicker than arriving from the launch page.
-export const SURFACE_EXIT_MS = 420
-export const SURFACE_ENTER_MS = 1300
+// Pages use the launch vocabulary at a quicker pace: flood out, then gather in.
+export const SURFACE_EXIT_MS = 650
+export const SURFACE_ENTER_MS = 1100
 /** A completed exit always precedes the content swap and the existing entry wave. */
 export function createSurfaceTransition(onPhase: (phase: SurfacePhase) => void, clock = { set: (fn: () => void, delay: number) => window.setTimeout(fn, delay), clear: (id: number) => window.clearTimeout(id) }) {
   let timer: number | undefined, phase: SurfacePhase = 'idle', commit: (() => void) | undefined

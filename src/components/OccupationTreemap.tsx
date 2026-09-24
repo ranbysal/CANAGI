@@ -47,6 +47,7 @@ const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)'
 export function OccupationTreemap({ data, layer, onSelect }: OccupationTreemapProps) {
   const figureRef = useRef<HTMLElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const hoverSession = useRef(0)
   const tooltipRef = useRef<HTMLDivElement>(null)
   const [tooltipSize, setTooltipSize] = useState({ width: 320, height: 240 })
   const [width, setWidth] = useState(1200)
@@ -149,68 +150,60 @@ export function OccupationTreemap({ data, layer, onSelect }: OccupationTreemapPr
     }
   }, [data, layer, ids])
 
+  const show = (tileWidth: number, tileHeight: number) => {
+    const label = tileWidth > 54 && tileHeight > 24
+    const word = !label && tileWidth > 22 && tileHeight > 12
+    return { label, metric: tileWidth > 82 && tileHeight > 46, word, initial: !label && !word && tileWidth > 6 && tileHeight > 7 }
+  }
+
+  // Geometry lives in SVG; every piece of text lives in one HTML layer above it,
+  // so colour sweeps and hovering never re-rasterize hundreds of text boxes.
   const tiles = useMemo(() => {
     // Occupations that were not on the last committed map unfold into their space.
     const before = previous.current?.data !== data ? previous.current?.ids : undefined
-    return layout.leaves.map(({ occupation, category, x, y, width: tileWidth, height: tileHeight }) => {
-    const showLabel = tileWidth > 54 && tileHeight > 24
-    const showMetric = tileWidth > 82 && tileHeight > 46
-    const showWord = !showLabel && tileWidth > 22 && tileHeight > 12
-    const showInitial = !showLabel && !showWord && tileWidth > 6 && tileHeight > 7
-    const firstWord = occupation.title.split(/\s+/)[0]
-    const wordFontSize = Math.max(5, Math.min(8, tileHeight * 0.48))
-    const wordCapacity = Math.max(1, Math.floor((tileWidth - 6) / (wordFontSize * 0.62)))
-    const compactWord = firstWord.slice(0, wordCapacity)
-    const fill = layerColor(layer, occupation)
-    const place = (event: { currentTarget: Element }, pointer?: { x: number; y: number }) => {
-      const rect = event.currentTarget.getBoundingClientRect()
-      setHovered({ occupation, x: pointer?.x ?? rect.left + rect.width / 2, y: pointer?.y ?? rect.top + rect.height / 2, tile: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } })
-    }
-    return (
-      <a
-        className="treemap-cell"
-        href={`?career=${occupation.noc_code}#explore`}
-        onClick={(event) => { event.preventDefault(); event.currentTarget.focus({ preventScroll: true }); setHovered(null); onSelect(occupation.noc_code) }}
-        aria-label={`${occupation.title}. ${metricLabel(layer, occupation)}. View career details.`}
-        key={occupation.noc_code}
-        data-cat={category}
-        data-new={before && !before.has(occupation.noc_code) ? '' : undefined}
-        style={{
-          '--tile-delay': `${tileEntryDelay(x, y, width, height)}ms`,
-          '--sweep': `${Math.round(tileSweep(x, y, width, height) * 420)}ms`,
-          '--tile-ink': tileTextColor(fill),
-        } as CSSProperties}
-        onPointerMove={(event) => { if (event.pointerType !== 'touch') place(event, { x: event.clientX, y: event.clientY }) }}
-        onFocus={event => place(event)}
-        onBlur={() => setHovered(null)}
-      >
-        <rect x={x} y={y} width={tileWidth} height={tileHeight} style={{ x, y, width: tileWidth, height: tileHeight } as CSSProperties} fill={fill} className="treemap-tile" />
-        {showLabel && (
-          <foreignObject x={x + 4} y={y + 4} width={Math.max(0, tileWidth - 8)} height={Math.max(0, tileHeight - 8)} pointerEvents="none">
-            <div className={`tile-label ${tileWidth < 78 || tileHeight < 38 ? 'tile-label--compact' : ''}`}>
-              <strong><AnimatedText text={occupation.title} duration={220} limit={60} /></strong>
-              {showMetric && <span className="tile-metric" key={layer}>{metricLabel(layer, occupation)}</span>}
-            </div>
-          </foreignObject>
-        )}
-        {showWord && (
-          <text className="tile-word" x={x + 3} y={y + Math.min(tileHeight - 3, 10)} fontSize={wordFontSize} pointerEvents="none">{compactWord}</text>
-        )}
-        {showInitial && (
-          <text
-            className="tile-initial"
-            x={x + tileWidth / 2}
-            y={y + tileHeight / 2}
-            fontSize={Math.max(3.5, Math.min(7, tileWidth * 0.5, tileHeight * 0.62))}
-            textAnchor="middle"
-            dominantBaseline="central"
-            pointerEvents="none"
-          >{occupation.title.charAt(0)}</text>
-        )}
-      </a>
-    )
+    return layout.leaves.map(({ occupation, x, y, width: tileWidth, height: tileHeight }) => {
+      const fill = layerColor(layer, occupation)
+      const place = (event: { currentTarget: Element }, pointer?: { x: number; y: number }) => {
+        const rect = event.currentTarget.getBoundingClientRect()
+        const next = { occupation, x: pointer?.x ?? rect.left + rect.width / 2, y: pointer?.y ?? rect.top + rect.height / 2, tile: { left: rect.left, top: rect.top, width: rect.width, height: rect.height } }
+        setHovered(current => { if (!current) hoverSession.current++; return next })
+      }
+      return (
+        <a
+          className="treemap-cell"
+          href={`?career=${occupation.noc_code}#explore`}
+          onClick={(event) => { event.preventDefault(); event.currentTarget.focus({ preventScroll: true }); setHovered(null); onSelect(occupation.noc_code) }}
+          aria-label={`${occupation.title}. ${metricLabel(layer, occupation)}. View career details.`}
+          key={occupation.noc_code}
+          data-new={before && !before.has(occupation.noc_code) ? '' : undefined}
+          style={{ '--tile-delay': `${tileEntryDelay(x, y, width, height)}ms`, '--sweep': `${Math.round(tileSweep(x, y, width, height) * 420)}ms` } as CSSProperties}
+          onPointerMove={(event) => { if (event.pointerType !== 'touch') place(event, { x: event.clientX, y: event.clientY }) }}
+          onFocus={event => place(event)}
+          onBlur={() => setHovered(null)}
+        >
+          <rect x={x} y={y} width={tileWidth} height={tileHeight} style={{ x, y, width: tileWidth, height: tileHeight } as CSSProperties} fill={fill} className="treemap-tile" />
+        </a>
+      )
     })
   }, [layout, layer, width, height, onSelect, data])
+
+  const labels = useMemo(() => layout.leaves.flatMap(({ occupation, x, y, width: tileWidth, height: tileHeight }) => {
+    const visible = show(tileWidth, tileHeight)
+    const style = { '--tile-ink': tileTextColor(layerColor(layer, occupation)), '--sweep': `${Math.round(tileSweep(x, y, width, height) * 420)}ms` } as CSSProperties
+    if (visible.label) return [
+      <div className={`tile-label ${tileWidth < 78 || tileHeight < 38 ? 'tile-label--compact' : ''}`} key={occupation.noc_code} style={{ ...style, left: x + 4, top: y + 4, width: tileWidth - 8, height: tileHeight - 8 }}>
+        <strong>{occupation.title}</strong>
+        {visible.metric && <span>{metricLabel(layer, occupation)}</span>}
+      </div>,
+    ]
+    if (visible.word) {
+      const fontSize = Math.max(5, Math.min(8, tileHeight * 0.48))
+      const word = occupation.title.split(/\s+/)[0].slice(0, Math.max(1, Math.floor((tileWidth - 6) / (fontSize * 0.62))))
+      return [<span className="tile-word" key={occupation.noc_code} style={{ ...style, left: x + 3, top: y + 1, width: tileWidth - 4, fontSize }}>{word}</span>]
+    }
+    if (visible.initial) return [<span className="tile-initial" key={occupation.noc_code} style={{ ...style, left: x, top: y, width: tileWidth, height: tileHeight, fontSize: Math.max(3.5, Math.min(7, tileWidth * 0.5, tileHeight * 0.62)) }}>{occupation.title.charAt(0)}</span>]
+    return []
+  }), [layout, layer, width, height])
 
   const focusLeaf = hovered ? layout.byId.get(hovered.occupation.noc_code) : undefined
   const focusField = focusLeaf ? layout.fields.find(field => field.index === focusLeaf.category) : undefined
@@ -226,19 +219,25 @@ export function OccupationTreemap({ data, layer, onSelect }: OccupationTreemapPr
             : <><b>{layout.fields.length} fields</b><span>{formatCompact(total)} jobs</span><span>Hover a tile to focus its field</span></>}
         </span>
       </p>
-      <div className="treemap-shell" ref={containerRef} onPointerLeave={() => setHovered(null)}>
-        <svg className="treemap" viewBox={`0 0 ${width} ${height}`} role="group" aria-label={`Treemap of ${layout.leaves.length} matching occupations coloured by ${layer}`} data-focus={focusLeaf?.category}>
-          {tiles}
-          {focusField && <rect className="treemap-field-ring" style={{ x: focusField.x, y: focusField.y, width: focusField.width, height: focusField.height } as CSSProperties} x={focusField.x} y={focusField.y} width={focusField.width} height={focusField.height} />}
-          {focusLeaf && <rect className="treemap-focus-ring" style={{ x: focusLeaf.x + 0.75, y: focusLeaf.y + 0.75, width: Math.max(0, focusLeaf.width - 1.5), height: Math.max(0, focusLeaf.height - 1.5) } as CSSProperties} x={focusLeaf.x + 0.75} y={focusLeaf.y + 0.75} width={Math.max(0, focusLeaf.width - 1.5)} height={Math.max(0, focusLeaf.height - 1.5)} />}
-        </svg>
+      <div className="treemap-shell" onPointerLeave={() => setHovered(null)}>
+        <div className="treemap-plane" ref={containerRef}>
+          <svg className="treemap" viewBox={`0 0 ${width} ${height}`} role="group" aria-label={`Treemap of ${layout.leaves.length} matching occupations coloured by ${layer}`}>
+            {tiles}
+          </svg>
+          <div className="treemap-labels" aria-hidden="true">{labels}</div>
+          {focusField && focusLeaf && <>
+            <div className="treemap-veil" key={`veil-${hoverSession.current}`} aria-hidden="true" style={{ clipPath: `polygon(evenodd, 0 0, ${width}px 0, ${width}px ${height}px, 0 ${height}px, 0 0, ${focusField.x}px ${focusField.y}px, ${focusField.x + focusField.width}px ${focusField.y}px, ${focusField.x + focusField.width}px ${focusField.y + focusField.height}px, ${focusField.x}px ${focusField.y + focusField.height}px, ${focusField.x}px ${focusField.y}px)` }} />
+            <div className="treemap-field-ring" key={`field-${hoverSession.current}`} aria-hidden="true" style={{ transform: `translate3d(${focusField.x}px, ${focusField.y}px, 0)`, width: focusField.width, height: focusField.height }} />
+            <div className="treemap-focus-ring" key={`tile-${hoverSession.current}`} aria-hidden="true" style={{ transform: `translate3d(${focusLeaf.x}px, ${focusLeaf.y}px, 0)`, width: focusLeaf.width, height: focusLeaf.height }} />
+          </>}
+        </div>
         {sweep > 0 && <span className="treemap-sheen" key={sweep} aria-hidden="true" />}
         {hovered && createPortal(
           <div
             ref={tooltipRef}
             className="treemap-tooltip"
             role="tooltip"
-            style={placeTooltip(hovered, hovered.tile, tooltipSize, { width: document.documentElement.clientWidth, height: window.innerHeight })}
+            style={(({ left, top }) => ({ transform: `translate3d(${Math.round(left)}px, ${Math.round(top)}px, 0)` }))(placeTooltip(hovered, hovered.tile, tooltipSize, { width: document.documentElement.clientWidth, height: window.innerHeight }))}
           >
             <div className="tooltip-body" key={hovered.occupation.noc_code}>
               <p className="tooltip-code">NOC {hovered.occupation.noc_code}</p>

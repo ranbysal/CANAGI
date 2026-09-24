@@ -7,7 +7,7 @@ The explorer covers all 516 NOC occupations. The visualizer sizes 485 occupation
 ## What it includes
 
 - A WebGL launch stage: a particle maple leaf that becomes the CN Tower skyline, a neural network and a field mosaic across three scroll steps
-- A launch transition in which that mosaic flattens into Canada's ten career fields, sized by employment, before folding away to reveal the visualizer
+- Page transitions in which those points flood the screen, then gather into the next page's heading, on every page
 - Four interactive data layers: COPS outlook, annualized pay, training pathways, and relative AI exposure
 - Employment summaries and distributions that update with each layer
 - A responsive treemap covering every occupation with employment data

@@ -4,7 +4,6 @@ import { Explorer } from './components/Explorer'
 import { Intro } from './components/Intro'
 import { ParticleStage } from './components/ParticleStage'
 import { SiteNav } from './components/SiteNav'
-import { StageShutter } from './components/StageShutter'
 import { createEntrySequence, type EntryScene } from './lib/entrySequence'
 import { setCharge } from './lib/motionStore'
 import { useMosaic } from './lib/useMosaic'
@@ -152,13 +151,12 @@ export default function App() {
 
   return (
     <main className="canagi-app" data-scene={scene} data-boot={booting ? 'true' : undefined} data-page={page} ref={appRef}>
-      <ParticleStage scene={scene} page={page} darkMode={darkMode} mosaic={mosaic} />
+      <ParticleStage scene={scene} darkMode={darkMode} mosaic={mosaic} />
       <SiteNav darkMode={darkMode} onThemeToggle={toggleTheme} onNavigate={enter} disabled={scene !== 'intro'} />
       <div className="launch-scene" inert={scene !== 'intro'} aria-hidden={scene === 'entering' || scene === 'explorer' || scene === 'returning'}>
         <Intro onEnter={() => enter()} busy={running} jobs={mosaic.jobs > 1000 ? mosaic.jobs : null} />
       </div>
       <Explorer interactive={scene === 'explorer'} hidden={scene === 'intro' || scene === 'leaving' || scene === 'arriving'} page={page} onNavigate={navigate} onHome={home} darkMode={darkMode} onThemeToggle={toggleTheme} />
-      <StageShutter scene={scene} mosaic={mosaic} />
       <div className="scroll-progress" aria-hidden="true" />
       <p className="sr-only" role="status">{returning ? 'Returning home.' : running ? 'Opening the job market.' : scene === 'explorer' ? 'Job market ready.' : 'Launch page ready.'}</p>
     </main>

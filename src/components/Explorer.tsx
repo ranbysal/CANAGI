@@ -19,7 +19,7 @@ import { DATA_RELEASE } from '../data/dataRelease'
 import { useSurfaceTransition } from '../lib/useSurfaceTransition'
 import { loadOccupations } from '../lib/occupationData'
 import { RevealText } from './RevealText'
-import { motionState, subscribeMotion } from '../lib/motionStore'
+import { motionState, setSurface, subscribeMotion } from '../lib/motionStore'
 
 const readSupport = () => motionState.webgl
 
@@ -43,6 +43,9 @@ export function Explorer({ interactive, hidden, page, onNavigate, onHome, darkMo
   }
   const pageTransition = useSurfaceTransition()
   const viewTransition = useSurfaceTransition()
+  // Page swaps drive the stage: points flood out, then gather into the next heading.
+  useEffect(() => { setSurface(pageTransition.phase) }, [pageTransition.phase])
+  useEffect(() => () => setSurface('idle'), [])
   const navigate = (destination: ContentPage) => {
     if (destination !== page) pageTransition.run(() => onNavigate(destination))
   }
@@ -90,9 +93,10 @@ export function Explorer({ interactive, hidden, page, onNavigate, onHome, darkMo
             <NavigationLinks page={page} onNavigate={navigate} darkMode={darkMode} onThemeToggle={onThemeToggle} />
           </nav>
         </div>
+        {/* One resting place for the stage formation on every page, so it never shifts between them. */}
+        <div className="page-decoration" aria-hidden="true">{!webgl && <img src="/assets/canada-workforce.webp" alt="" width="1672" height="941" />}</div>
 
         {overview ? <header className="explorer-heading">
-          <div className="explorer-art" aria-hidden="true">{!webgl && <img src="/assets/canada-workforce.webp" alt="" width="1672" height="941" />}</div>
           <div className="explorer-copy">
             <h2 id="explorer-title" tabIndex={-1}>
               <span className="heading-line"><RevealText text="Canadian Job" delay={60} step={70} /></span>
@@ -104,9 +108,10 @@ export function Explorer({ interactive, hidden, page, onNavigate, onHome, darkMo
             <button className="text-button header-methodology" id="methodology" type="button" onClick={showMethodology}><AnimatedText text="About the data & its limits" delay={950} duration={250} /><ArrowRight size={13} /></button>
           </div>
         </header> : page === 'careers' ? <header className="career-page-heading research-heading">
-          <div><p className="research-eyebrow">THE WORK BEHIND THE NUMBERS</p><h2 id="career-page-title" tabIndex={-1}><RevealText text="The Career Explorer." delay={60} step={70} /></h2>
-          <p>Find and compare occupations by pay, pathways, demand and AI exposure.</p></div>
-          <div className="research-heading-note"><span>516 OCCUPATIONS / CANADA</span><p>Wages: November 2025 release<br />Activity profiles: OaSIS 2025</p><button className="text-button" type="button" onClick={showMethodology}>Sources & methodology <ArrowRight size={14} /></button></div>
+          <div className="research-heading-copy"><p className="research-eyebrow">THE WORK BEHIND THE NUMBERS</p><h2 id="career-page-title" tabIndex={-1}><RevealText text="The Career Explorer." delay={60} step={70} /></h2>
+          <p className="research-deck">Find and compare occupations by pay, pathways, demand and AI exposure.</p>
+          <p className="research-meta"><span>516 occupations / Canada</span><span>Wages: November 2025 release</span><span>Activity profiles: OaSIS 2025</span></p>
+          <button className="text-button research-sources" type="button" onClick={showMethodology}>Sources & methodology <ArrowRight size={14} /></button></div>
         </header> : null}
 
         {error ? <div className="data-state" role="alert"><h3>The occupation data did not load.</h3><p>Refresh the page to try again.</p><button className="secondary-button" type="button" onClick={() => window.location.reload()}>Try again</button></div>

@@ -5,7 +5,8 @@
 type Listener = () => void
 
 const listeners = new Set<Listener>()
-const state = { charge: 0, webgl: true }
+export type SurfacePhase = 'idle' | 'out' | 'in'
+const state = { charge: 0, webgl: true, surface: 'idle' as SurfacePhase }
 
 function notify() { listeners.forEach(listener => listener()) }
 
@@ -21,6 +22,13 @@ export function setCharge(value: number) {
 export function setStageSupported(value: boolean) {
   if (value === state.webgl) return
   state.webgl = value
+  notify()
+}
+
+/** A page swap inside the explorer: points flood out, then gather into the next page. */
+export function setSurface(phase: SurfacePhase) {
+  if (phase === state.surface) return
+  state.surface = phase
   notify()
 }
 

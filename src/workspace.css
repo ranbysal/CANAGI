@@ -1,0 +1,335 @@
+/*
+ * Career Explorer, Compare and the career panels. Loaded last: soft surfaces,
+ * rounded controls and one purple accent, with a colour per compared series.
+ */
+:root {
+  --series-0: #5a58ff;
+  --series-1: #0b9e90;
+  --series-2: #d4166e;
+  --series-ink: #ffffff;
+  --elevation: 0 1px 2px rgb(20 18 50 / .05), 0 10px 28px -14px rgb(20 18 50 / .22);
+  --elevation-lg: 0 2px 6px rgb(20 18 50 / .05), 0 30px 80px -26px rgb(20 18 50 / .38);
+  --check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.6 6.3l2.2 2.2 4.6-5' fill='none' stroke='white' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+:root[data-theme='dark'] {
+  --series-0: #aaa8ff;
+  --series-1: #36d3c1;
+  --series-2: #ff70ae;
+  --series-ink: #0d0d12;
+  --elevation: 0 1px 2px rgb(0 0 0 / .3), 0 12px 30px -14px rgb(0 0 0 / .7);
+  --elevation-lg: 0 30px 80px -24px rgb(0 0 0 / .75);
+  --check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.6 6.3l2.2 2.2 4.6-5' fill='none' stroke='%230d0d12' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+}
+.career-workspace, .career-dialog, .comparison-tray {
+  --blue: var(--brand-purple);
+  --tint: color-mix(in srgb, var(--brand-purple) 7%, var(--background));
+  --tint-strong: color-mix(in srgb, var(--brand-purple) 13%, var(--background));
+  --field: color-mix(in srgb, var(--text) 3.5%, var(--background));
+  --ring: 0 0 0 4px color-mix(in srgb, var(--brand-purple) 16%, transparent);
+}
+.mono-label, .career-workspace .presets > span, .active-filters-label, .career-workspace .filter-popover legend, .career-workspace .range-inputs label {
+  font: 600 .66rem/1.5 var(--mono-face);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+/* ---------- Search and view ---------- */
+.career-workspace .search-view-row { align-items: center; gap: .7rem; }
+.career-workspace .career-search { min-height: 56px; padding: 0 .75rem 0 1.1rem; border: 1px solid var(--line); border-radius: 14px; background: var(--field); transition: border-color 200ms ease, background-color 200ms ease, box-shadow 250ms var(--ease-out); }
+.career-workspace .career-search:hover { border-color: var(--line-strong); }
+.career-workspace .career-search:focus-within { border-color: var(--brand-purple); background: var(--surface-solid); box-shadow: var(--ring); }
+.career-workspace .career-search > svg { color: var(--muted); transition: color 200ms ease; }
+.career-workspace .career-search:focus-within > svg { color: var(--brand-purple); }
+.career-workspace .career-search input { height: 54px; background: transparent; font-size: 1.05rem; }
+.career-workspace .career-search button { border-radius: 50%; color: var(--muted); }
+.career-workspace .career-search button:hover { color: var(--text); background: var(--tint); }
+.search-shortcut { display: grid; min-width: 1.65rem; height: 1.65rem; place-items: center; padding: 0 .4rem; border: 1px solid var(--line-strong); border-radius: 6px; background: var(--surface-solid); color: var(--muted); font: 600 .72rem/1 var(--mono-face); }
+.career-workspace .career-search:focus-within .search-shortcut { opacity: 0; }
+
+.career-workspace .view-toggle { position: relative; display: grid; grid-template-columns: 1fr 1fr; min-height: 56px; padding: 4px; gap: 0; border: 1px solid var(--line); border-radius: 14px; background: var(--field); }
+.view-toggle-pill { position: absolute; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px); border-radius: 10px; background: var(--surface-solid); box-shadow: var(--elevation); transition: transform 480ms var(--ease-out); }
+.view-toggle[data-view='list'] .view-toggle-pill { transform: translateX(100%); }
+.career-workspace .view-toggle button, .career-workspace .view-toggle button[aria-pressed='true'] { position: relative; z-index: 1; padding: .5rem 1.15rem; border-radius: 10px; background: none; box-shadow: none; color: var(--muted); font-size: .86rem; font-weight: 600; transition: color 300ms ease; }
+.career-workspace .view-toggle button[aria-pressed='true'] { color: var(--brand-purple); }
+
+/* ---------- Filters ---------- */
+.career-workspace .filter-menus { display: flex; flex-wrap: wrap; gap: .5rem; padding: 1rem 0 .8rem; }
+.career-workspace .filter-menu summary {
+  display: inline-flex;
+  min-height: 40px;
+  align-items: center;
+  gap: .5rem;
+  padding: 0 .8rem 0 .85rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--surface-solid);
+  color: var(--text);
+  font-size: .86rem;
+  transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease, box-shadow 250ms var(--ease-out);
+}
+.career-workspace .filter-menu summary > svg { margin: 0; color: var(--muted); transition: color 200ms ease, transform 350ms var(--ease-out); }
+.career-workspace .filter-menu summary:hover { border-color: var(--line-strong); box-shadow: var(--elevation); }
+.career-workspace .filter-menu summary[data-active] { border-color: color-mix(in srgb, var(--brand-purple) 45%, var(--line)); background: var(--tint); color: var(--brand-purple); }
+.career-workspace .filter-menu[open] summary { border-color: var(--brand-purple); color: var(--brand-purple); box-shadow: var(--ring); }
+.career-workspace .filter-menu :is(summary[data-active], [open] summary) > svg, .career-workspace .filter-menu[open] summary > svg { color: var(--brand-purple); }
+.career-workspace .filter-menu[open] .filter-chevron { transform: rotate(180deg); }
+.career-workspace .filter-number { display: grid; min-width: 20px; height: 20px; place-items: center; padding: 0 5px; border-radius: 999px; background: var(--brand-purple); color: var(--series-ink); font: 700 .68rem/1 var(--mono-face); }
+.career-workspace .filter-popover {
+  top: calc(100% + .55rem);
+  width: 360px;
+  padding: 1.1rem 1.1rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface-solid);
+  box-shadow: var(--elevation-lg);
+}
+.career-workspace .filter-menu:last-child .filter-popover { width: 380px; }
+.filter-popover-title { margin: 0; color: var(--text); font: 700 .95rem/1.3 Arial, Helvetica, sans-serif; }
+.filter-popover-description { margin: .2rem 0 .95rem; color: var(--muted); font-size: .78rem; line-height: 1.45; }
+.career-workspace .filter-popover legend { display: flex; align-items: center; gap: .3rem; padding-bottom: .5rem; }
+.career-workspace .filter-option { align-items: center; gap: .75rem; margin: 0 -.4rem; padding: .55rem .6rem; border-radius: 10px; font-size: .88rem; line-height: 1.4; transition: background-color 150ms ease; }
+.career-workspace .filter-option:hover { background: var(--field); }
+.career-workspace .filter-option:has(input:checked) { background: var(--tint); }
+.career-workspace .filter-option b { font-weight: 700; }
+.career-workspace input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+  flex: none;
+  margin: 0;
+  border: 1.5px solid var(--line-strong);
+  border-radius: 5px;
+  background: var(--surface-solid) center / 12px no-repeat;
+  cursor: pointer;
+  -webkit-appearance: none;
+  appearance: none;
+  transition: background-color 150ms ease, border-color 150ms ease;
+}
+.career-workspace input[type='checkbox']:checked { border-color: var(--brand-purple); background-color: var(--brand-purple); background-image: var(--check); }
+.career-workspace input[type='checkbox']:disabled { opacity: .4; }
+.career-workspace .filter-help { color: var(--muted); font-size: .76rem; line-height: 1.55; }
+.career-workspace .filter-popover fieldset + .filter-help { margin-top: .8rem; padding-top: .8rem; border-top: 1px solid var(--line); }
+.career-workspace .range-inputs { gap: .6rem; margin: .5rem 0 1rem; }
+.career-workspace .range-inputs input { height: 44px; margin-top: .45rem; padding: 0 .8rem; border: 1px solid var(--line); border-radius: 10px; background: var(--field); color: var(--text); font: 400 .95rem Arial, Helvetica, sans-serif; letter-spacing: 0; text-transform: none; transition: border-color 150ms ease, box-shadow 200ms ease, background-color 150ms ease; }
+.career-workspace .range-inputs input:focus { outline: none; border-color: var(--brand-purple); background: var(--surface-solid); box-shadow: var(--ring); }
+.career-workspace .quick-bands { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .4rem; }
+.career-workspace .quick-bands button { display: grid; gap: .15rem; padding: .55rem .65rem; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-solid); color: var(--muted); font-size: .74rem; text-align: left; }
+.career-workspace .quick-bands button strong { color: var(--text); font-size: .84rem; font-weight: 600; }
+.career-workspace .quick-bands button:hover, .career-workspace .quick-bands button[aria-pressed='true'] { border-color: var(--brand-purple); background: var(--tint); }
+
+.career-workspace .presets { gap: .45rem; padding: .15rem 0 .5rem; }
+.career-workspace .presets > span { display: inline-flex; align-items: center; gap: .4rem; margin-right: .35rem; }
+.career-workspace .presets > span svg { color: var(--brand-purple); }
+.career-workspace .presets button { padding: .38rem .85rem; border: 1px dashed color-mix(in srgb, var(--brand-purple) 42%, var(--line)); border-radius: 999px; background: none; color: var(--text); font-size: .8rem; text-decoration: none; transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease; }
+.career-workspace .presets button:hover { border-style: solid; border-color: var(--brand-purple); background: var(--tint); color: var(--brand-purple); }
+
+.career-workspace .active-filters { gap: .4rem; padding: .7rem 0 .3rem; }
+.active-filters-label { margin-right: .35rem; }
+.career-workspace .filter-chip { gap: .45rem; padding: .32rem .4rem .32rem .8rem; border: 0; border-radius: 999px; background: var(--tint-strong); color: var(--brand-purple); font-size: .8rem; font-weight: 600; animation: chip-in 380ms var(--ease-out) both; transition: background-color 200ms ease, color 200ms ease; }
+.career-workspace .filter-chip svg { width: 18px; height: 18px; padding: 3px; border-radius: 50%; background: color-mix(in srgb, var(--brand-purple) 16%, transparent); }
+.career-workspace .filter-chip:hover { background: var(--brand-purple); color: var(--series-ink); }
+.career-workspace .active-filters .text-button { margin-left: .4rem; font-size: .8rem; }
+
+.career-workspace .result-summary { margin-top: .7rem; padding: 1rem 0; border-top: 1px solid var(--line); border-bottom: 0; }
+.career-workspace .result-summary p { display: flex; align-items: baseline; gap: .45rem; margin: 0; }
+.career-workspace .result-summary p strong { color: var(--text); font: 300 1.9rem/1 var(--display-face); letter-spacing: -.03em; }
+.career-workspace .result-summary p span { color: var(--muted); font-size: .9rem; }
+.result-badge { display: inline-flex; align-items: center; gap: .35rem; padding: .28rem .65rem; border-radius: 999px; background: var(--field); color: var(--muted); font-size: .74rem; }
+.career-workspace .result-summary .text-button { margin-left: auto; color: var(--brand-purple); text-decoration: none; }
+.career-workspace .results-heading { margin: .6rem 0 0; }
+.career-workspace .results-heading h3 { color: var(--muted); font: 600 .66rem/1.5 var(--mono-face); letter-spacing: .1em; text-transform: uppercase; }
+
+/* ---------- Summary ---------- */
+.research-summary { gap: .7rem; margin: .8rem 0 0; padding: 0 0 1.4rem; border: 0; }
+.research-summary > div { position: relative; min-width: 0; padding: 1.1rem 1.2rem 1.15rem; overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(180deg, var(--tint), var(--surface-solid) 70%); }
+.research-summary > div::after { content: ''; position: absolute; top: 0; right: 1.2rem; left: 1.2rem; height: 2px; border-radius: 0 0 2px 2px; background: var(--brand-purple); opacity: .55; transform: scaleX(.18); transform-origin: left; transition: transform 600ms var(--ease-out), opacity 300ms ease; }
+.research-summary > div:hover::after { opacity: 1; transform: none; }
+.research-summary dt { color: var(--muted); font-size: .78rem; font-weight: 600; }
+.research-summary dd { margin: .6rem 0 .4rem; font-size: clamp(1.8rem, 2.4vw, 2.6rem); letter-spacing: -.045em; }
+.research-summary dd .count-up, .research-summary dd .count-up span { color: inherit; font-size: inherit; letter-spacing: inherit; }
+
+/* ---------- Directory ---------- */
+.research-list { margin-top: 1.6rem; }
+.research-list .list-toolbar { align-items: flex-end; padding-bottom: 1rem; }
+.research-list .list-toolbar p + p { font: 400 1.45rem/1.25 "PT Serif", Georgia, serif; letter-spacing: -.02em; }
+.research-list .sort-control { gap: .4rem; padding: 0 .35rem 0 .9rem; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-solid); transition: border-color 200ms ease, box-shadow 250ms ease; }
+.research-list .sort-control:hover, .research-list .sort-control:focus-within { border-color: var(--brand-purple); box-shadow: var(--ring); }
+.research-list .sort-control select { padding: .6rem .5rem; border: 0; background: transparent; cursor: pointer; font-size: .85rem; }
+.research-list .sort-control select:focus-visible { outline: none; }
+.occupation-directory { display: grid; gap: .45rem; border-top: 0; }
+.occupation-row {
+  position: relative;
+  padding: 1.05rem 1.1rem 1.05rem 1.35rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--surface-solid);
+  transition: border-color 250ms ease, box-shadow 300ms var(--ease-out), transform 300ms var(--ease-out);
+}
+.occupation-row::before { content: ''; position: absolute; top: 14px; bottom: 14px; left: 0; width: 3px; border-radius: 0 3px 3px 0; background: var(--brand-purple); transform: scaleY(0); transition: transform 350ms var(--ease-out); }
+.occupation-row:hover { border-color: color-mix(in srgb, var(--brand-purple) 32%, var(--line)); background: var(--surface-solid); box-shadow: var(--elevation); }
+.occupation-row:hover::before, .occupation-row:focus-within::before { transform: none; }
+.occupation-row .career-title-button { font-size: 1.02rem; font-weight: 600; }
+.occupation-row .career-title-button svg { color: var(--muted); transition: transform 300ms var(--ease-out), color 200ms ease; }
+.occupation-row:hover .career-title-button { color: var(--brand-purple); }
+.occupation-row:hover .career-title-button svg { color: var(--brand-purple); transform: translate(2px, -2px); }
+.occupation-row .career-title-button:hover span { text-decoration: none; }
+.occupation-rank { color: var(--brand-purple); font-weight: 600; }
+.occupation-metadata { align-items: center; gap: .4rem .45rem; margin-top: .55rem; }
+.meta-chip { display: inline-flex; align-items: center; padding: .1rem .5rem; border: 1px solid var(--line); border-radius: 6px; font-size: .7rem; line-height: 1.5; }
+.meta-noc { font-family: var(--mono-face); }
+.meta-outlook { display: inline-flex; align-items: center; gap: .4rem; margin-left: .2rem; font-size: .74rem; }
+.meta-outlook i { width: 7px; height: 7px; border-radius: 50%; }
+.occupation-pay > span, .occupation-exposure > span { font-size: .72rem; }
+.career-workspace .index-track, .index-track { height: 4px; max-width: 150px; margin: .75rem 0 .15rem; border-radius: 999px; background: linear-gradient(to right, #04cbb8, #acf3e4, #fddde3, #fdb6c5, #e3066a); }
+.career-workspace .index-track i, .index-track i { width: 11px; height: 11px; border: 2.5px solid var(--text); border-radius: 50%; background: var(--surface-solid); transform: translate(-50%, -3.5px); }
+.research-list .compare-add, .detail-context .compare-add {
+  display: inline-flex;
+  min-height: 36px;
+  align-items: center;
+  gap: .35rem;
+  padding: 0 .9rem 0 .75rem;
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  background: var(--surface-solid);
+  color: var(--text);
+  font-size: .8rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: border-color 200ms ease, background-color 200ms ease, color 200ms ease, transform 300ms var(--ease-out);
+}
+.research-list .compare-add:hover:not(:disabled), .detail-context .compare-add:hover:not(:disabled) { border-color: var(--brand-purple); background: var(--tint); color: var(--brand-purple); text-decoration: none; }
+.research-list .compare-add.is-selected, .detail-context .compare-add.is-selected { border-color: var(--brand-purple); background: var(--brand-purple); color: var(--series-ink); font-weight: 700; }
+.research-list .list-pagination { padding-top: 1.3rem; }
+.research-list .list-pagination button { width: 40px; height: 40px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface-solid); }
+.research-list .list-pagination button:hover:not(:disabled) { border-color: var(--brand-purple); color: var(--brand-purple); }
+.list-pagination span strong { color: var(--text); }
+
+/* ---------- Comparison tray ---------- */
+.comparison-tray { gap: .9rem; padding: .65rem .7rem .65rem 1rem; border: 1px solid var(--line); border-radius: 18px; background: color-mix(in srgb, var(--surface-solid) 97%, transparent); box-shadow: var(--elevation-lg); }
+.comparison-tray .tray-label { color: var(--brand-purple); }
+.comparison-tray .tray-selections { gap: .45rem; }
+.comparison-tray .tray-career { gap: .55rem; padding: .45rem .35rem .45rem .5rem; border: 1px solid var(--line); border-radius: 12px; background: var(--field); }
+.tray-career > b { display: grid; width: 22px; height: 22px; flex: none; place-items: center; border-radius: 7px; background: var(--series); color: var(--series-ink); font: 700 .7rem/1 var(--mono-face); }
+.tray-career button { border-radius: 8px; color: var(--muted); }
+.tray-career button:hover { background: var(--tint); color: var(--text); }
+.comparison-tray .primary-button, .career-workspace .primary-button { border: 0; border-radius: 999px; background: var(--brand-purple); color: var(--series-ink); font-weight: 700; padding: .7rem 1.15rem; }
+.comparison-tray .primary-button:hover:not(:disabled) { box-shadow: 0 10px 26px -10px color-mix(in srgb, var(--brand-purple) 80%, transparent); }
+.comparison-tray .primary-button:disabled { background: var(--line-strong); }
+
+/* ---------- Compare fields ---------- */
+.field-selection-toolbar { padding: 1rem 0 .4rem; border-bottom: 0; }
+.field-selection-status { padding: .28rem .65rem; border-radius: 999px; background: var(--field); }
+.field-chips { display: flex; flex-wrap: wrap; gap: .45rem; padding: .5rem 0 1.4rem; border-bottom: 1px solid var(--line); }
+.field-chips button { display: inline-flex; min-height: 38px; align-items: center; gap: .45rem; padding: 0 .95rem 0 .6rem; border: 1px solid var(--line); border-radius: 999px; background: var(--surface-solid); color: var(--text); font-size: .84rem; transition: border-color 200ms ease, background-color 200ms ease, box-shadow 250ms var(--ease-out); }
+.field-chips button > svg { color: var(--muted); }
+.field-chips button:hover:not(:disabled):not([aria-pressed='true']) { border-color: var(--line-strong); box-shadow: var(--elevation); }
+.field-chips button[aria-pressed='true'] { border-color: var(--series); background: color-mix(in srgb, var(--series) 11%, var(--background)); font-weight: 600; }
+.field-chips button b { display: grid; width: 22px; height: 22px; place-items: center; border-radius: 50%; background: var(--series); color: var(--series-ink); font: 700 .7rem/1 var(--mono-face); animation: chip-in 380ms var(--ease-out) both; }
+.field-chips button:disabled { cursor: not-allowed; opacity: .42; }
+.selected-field-index { gap: .8rem; padding: 1.4rem 0 1.9rem; }
+.selected-field-index > div { padding: 1.05rem 1.2rem 1.1rem; border: 1px solid var(--line); border-top: 3px solid var(--series); border-radius: 14px; background: linear-gradient(180deg, color-mix(in srgb, var(--series) 7%, var(--surface-solid)), var(--surface-solid) 70%); }
+.career-workspace .selected-field-index .field-letter { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: var(--series); color: var(--series-ink); }
+.selected-field-index .field-index-top button { border-radius: 50%; color: var(--muted); }
+.selected-field-index .field-index-top button:hover { background: var(--tint); color: var(--text); }
+.career-workspace .selected-field-index .field-drill { border-bottom: 0; color: var(--series); font-weight: 600; }
+.career-workspace .study-row-name > i { display: grid; width: 20px; height: 20px; place-items: center; border-radius: 50%; background: var(--series, var(--brand-purple)); color: var(--series-ink); font-style: normal; font-weight: 700; }
+.study-measure .study-bar { height: 8px; overflow: hidden; border-radius: 999px; background: var(--field); }
+.career-workspace .study-measure .study-bar > i, .study-measure .study-bar > i { border-radius: 999px; background: var(--series, var(--brand-purple)); }
+.study-measure .boxplot-band { border-color: color-mix(in srgb, var(--series) 55%, var(--background)); border-radius: 5px; background: color-mix(in srgb, var(--series) 18%, var(--background)); }
+.study-measure .boxplot-median { border-radius: 2px; background: var(--series); }
+.study-measure .exposure-density > span { border-radius: 2px 2px 0 0; background: color-mix(in srgb, var(--series) 58%, var(--background)); }
+.study-measure .density-mean, .study-measure .density-mean::before { background: var(--series); }
+.pathway-stack > div:first-child { border-radius: 5px 0 0 5px; }
+.pathway-stack > div:last-child { border-radius: 0 5px 5px 0; }
+
+/* ---------- Career panels ---------- */
+.career-dialog { width: min(880px, calc(100% - 2rem)); max-height: min(92dvh, 1100px); border: 1px solid var(--line); border-radius: 20px; background: var(--surface-solid); box-shadow: var(--elevation-lg); }
+.career-dialog--wide { width: min(1240px, calc(100% - 2rem)); }
+.career-dialog::backdrop { background: rgb(12 11 29 / .55); -webkit-backdrop-filter: none; backdrop-filter: none; }
+.career-dialog .dialog-content { padding: 0 2.2rem 2rem; }
+.career-dialog .dialog-heading { margin: 0 -2.2rem; padding: 1.55rem 2.2rem 1.2rem; gap: 1.5rem; border-bottom: 1px solid var(--line); background: var(--surface-solid); }
+.career-dialog .dialog-heading > div { min-width: 0; flex: 1; }
+.career-dialog .dialog-heading .utility-label { color: var(--brand-purple); font-size: .7rem; letter-spacing: .12em; }
+.career-dialog .dialog-heading h2 { margin: .4rem 0 0; font-family: var(--display-face); font-size: clamp(1.8rem, 3.3vw, 2.5rem); font-weight: 350; line-height: 1.08; letter-spacing: -.025em; }
+.career-dialog .dialog-close { width: 42px; height: 42px; border: 1px solid var(--line); border-radius: 50%; background: var(--surface-solid); }
+.career-dialog .dialog-close:hover { border-color: var(--text); }
+.career-dialog .dialog-intro { margin: 1.2rem 0 0; color: var(--muted); font-size: .98rem; }
+.detail-context { padding: .85rem 0 0; font-size: .82rem; }
+.detail-tags { display: flex; flex-wrap: wrap; gap: .4rem; }
+.detail-tags > span { padding: .25rem .65rem; border-radius: 999px; background: var(--field); color: var(--muted); font-size: .76rem; }
+.career-dialog .detail-metrics { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .6rem; margin: 1.4rem 0 0; padding: 0; border: 0; background: none; }
+.career-dialog .detail-metrics > .detail-metric { min-width: 0; padding: 1rem 1rem 1.05rem; border: 1px solid var(--line); border-radius: 14px; background: linear-gradient(180deg, var(--tint), var(--surface-solid) 75%); }
+.detail-metric dt { color: var(--muted); font-size: .74rem; font-weight: 600; }
+.career-dialog .detail-metric dd { display: grid; gap: .6rem; margin: .5rem 0 .45rem; font-size: 1.65rem; letter-spacing: -.035em; }
+.career-dialog .detail-metric .detail-outlook { font-size: 1.02rem; line-height: 1.3; letter-spacing: -.01em; }
+.career-dialog .detail-metric small { font-size: .7rem; line-height: 1.45; }
+.exposure-gauge { position: relative; display: block; height: 5px; max-width: 240px; border-radius: 999px; background: linear-gradient(to right, #04cbb8, #acf3e4, #fddde3, #fdb6c5, #e3066a); }
+.exposure-gauge i { position: absolute; top: 50%; width: 13px; height: 13px; border: 2.5px solid var(--text); border-radius: 50%; background: var(--surface-solid); transform: translate(-50%, -50%); animation: gauge-in 900ms var(--ease-out) both; }
+.outlook-steps { display: grid; max-width: 220px; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; }
+.outlook-steps i { height: 5px; border-radius: 999px; opacity: .2; }
+.outlook-steps i[data-on] { opacity: 1; box-shadow: 0 0 0 2px color-mix(in srgb, var(--surface-solid) 80%, transparent); }
+.career-dialog .published-wage { margin-top: .8rem; padding: .75rem 1rem; border: 1px dashed var(--line-strong); border-radius: 12px; }
+.career-dialog .detail-section { padding-top: 2.1rem; }
+.career-dialog .detail-section h3, .career-dialog .evidence-heading h3 { font-family: var(--display-face); font-size: 1.45rem; font-weight: 400; letter-spacing: -.02em; }
+.career-dialog .evidence-heading { padding-top: 2rem; }
+.career-dialog .evidence-heading > strong { font-family: var(--display-face); font-weight: 300; }
+.career-dialog .evidence-facts { gap: .6rem; padding: 0; border: 0; }
+.career-dialog .evidence-facts > div { padding: .9rem 1rem; border: 1px solid var(--line); border-radius: 12px; }
+.career-dialog .evidence-meter { height: 5px; overflow: hidden; border-radius: 999px; }
+.career-dialog .evidence-meter i { border-radius: 999px; background: var(--brand-purple); }
+.career-dialog .career-resources { gap: .45rem; border: 0; }
+.career-dialog .career-resources a { padding: .9rem 1rem; border: 1px solid var(--line); border-radius: 12px; transition: border-color 200ms ease, background-color 200ms ease; }
+.career-dialog .career-resources a:hover { border-color: var(--brand-purple); background: var(--tint); }
+.career-dialog .compact-resources a { padding: .55rem .7rem; }
+.career-dialog .detail-source-note { margin-top: 1.4rem; padding: .85rem 1rem; border: 1px solid var(--line); border-radius: 12px; }
+.career-dialog .detail-source-note summary { font-weight: 600; }
+.career-dialog .exposure-evidence .detail-source-note { margin-top: 1rem; }
+
+/* The comparison: a card per career, measures on shared scales. */
+.comparison-takeaways { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: .7rem; margin: 1.3rem 0 1.4rem; padding: 0; border: 0; background: none; }
+.takeaway { padding: 1.05rem 1.2rem 1.1rem; border: 1px solid var(--line); border-radius: 16px; background: linear-gradient(135deg, var(--tint), var(--surface-solid) 72%); }
+.takeaway .utility-label { color: var(--brand-purple); font-size: .66rem; }
+.takeaway strong { display: block; margin: .45rem 0 .3rem; font: 300 2.2rem/1 var(--display-face); letter-spacing: -.03em; }
+.takeaway p { margin: 0 0 .45rem; font-size: .92rem !important; font-weight: 600; }
+.takeaway small { display: block; color: var(--muted); font-size: .74rem; line-height: 1.5; }
+.career-dialog .comparison-scroll { border-top: 0; }
+.career-dialog .comparison-table { border-collapse: separate; border-spacing: .6rem 0; margin: 0 -.6rem; }
+.career-dialog .comparison-table th, .career-dialog .comparison-table td { padding: 1.05rem .2rem; border-right: 0; border-bottom: 1px solid var(--line); }
+.career-dialog .comparison-table th[scope='row'] { padding-right: .8rem; background: none; color: var(--muted); font: 600 .64rem/1.55 var(--mono-face); letter-spacing: .07em; text-transform: uppercase; }
+.career-dialog .comparison-table thead th { padding: 0 0 .9rem; border-bottom: 0; vertical-align: bottom; }
+.career-dialog .comparison-table thead th[scope='col']:not(:first-child) { padding: 1rem 1.1rem 1.1rem; border: 1px solid var(--line); border-top: 3px solid var(--series); border-radius: 14px; background: linear-gradient(180deg, color-mix(in srgb, var(--series) 8%, var(--surface-solid)), var(--surface-solid) 80%); }
+.compare-card-top { display: flex; align-items: center; gap: .55rem; }
+.compare-card-top b { display: grid; width: 24px; height: 24px; place-items: center; border-radius: 50%; background: var(--series); color: var(--series-ink); font: 700 .72rem/1 var(--mono-face); }
+.career-dialog .comparison-table thead h3 { margin: .7rem 0 .35rem; font-family: var(--display-face); font-size: 1.3rem; font-weight: 400; line-height: 1.2; letter-spacing: -.015em; }
+.compare-card-field { color: var(--muted); font-size: .76rem; }
+.career-dialog .compare-number { font-size: 1.85rem; }
+.career-dialog .compare-number--small { font-size: 1.35rem; }
+.compare-bar { display: block; max-width: 260px; height: 6px; margin: .65rem 0 .5rem; overflow: hidden; border-radius: 999px; background: var(--field); }
+.compare-bar i { display: block; height: 100%; border-radius: inherit; background: var(--series); transform-origin: left; animation: bar-across 900ms var(--ease-out) both; }
+.comparison-table .exposure-gauge { margin: .7rem 0 .65rem; }
+.comparison-table .outlook-steps { margin-top: .65rem; }
+.comparison-table .outlook-label i { width: 8px; height: 8px; }
+
+@keyframes chip-in { from { opacity: 0; transform: scale(.85); } }
+@keyframes gauge-in { from { left: 0; opacity: 0; } }
+
+@media (max-width: 900px) {
+  .career-dialog .detail-metrics { grid-template-columns: 1fr 1fr; }
+  .research-summary { grid-template-columns: 1fr 1fr; }
+}
+@media (max-width: 760px) {
+  .career-workspace .view-toggle { min-height: 48px; }
+  .career-workspace .mobile-filter-toggle { min-height: 48px; border: 1px solid var(--line); border-radius: 14px; background: var(--field); font-weight: 600; }
+  .career-workspace .filter-panel.is-expanded { border: 1px solid var(--line); border-radius: 16px; background: var(--surface-solid); box-shadow: var(--elevation); }
+  .career-workspace .filter-menu summary { width: 100%; }
+  .career-workspace .filter-menu summary .filter-chevron { margin-left: auto; }
+  .career-workspace .filter-popover, .career-workspace .filter-menu:last-child .filter-popover { width: 100%; padding: .9rem .6rem; border: 0; border-radius: 0; box-shadow: none; }
+  .filter-popover-title { display: none; }
+  .occupation-row { padding: 1rem; }
+  .career-dialog .dialog-content { padding: 0 1rem 1.2rem; }
+  .career-dialog .dialog-heading { margin: 0 -1rem; padding: 1rem; }
+  .career-dialog .comparison-table thead th[scope='col']:not(:first-child) { padding: .85rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .career-workspace *, .career-dialog *, .comparison-tray * { animation: none !important; transition: none !important; }
+}

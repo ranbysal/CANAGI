@@ -1,30 +1,32 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
 import type { EntryScene } from '../lib/entrySequence'
-import type { ContentPage } from '../lib/contentPages'
 import type { Mosaic } from '../lib/mosaicLayout'
-import { motionState, setStageSupported, subscribeMotion } from '../lib/motionStore'
+import { motionState, setStageSupported, subscribeMotion, type SurfacePhase } from '../lib/motionStore'
 import { StageEngine, type StageMode } from '../lib/stageEngine'
 
-interface Props { scene: EntryScene; page: ContentPage; darkMode: boolean; mosaic: Mosaic }
+interface Props { scene: EntryScene; darkMode: boolean; mosaic: Mosaic }
 
-function modeFor(scene: EntryScene, page: ContentPage): StageMode {
-  if (scene === 'entering' || scene === 'explorer') return page === 'overview' ? scene : 'hidden'
-  return scene
+const readSurface = () => motionState.surface
+
+function modeFor(scene: EntryScene, surface: SurfacePhase): StageMode {
+  if (scene !== 'explorer') return scene
+  return surface === 'out' ? 'page-out' : surface === 'in' ? 'page-in' : 'page'
 }
 
-/** The WebGL layer behind the launch page and the visualizer heading. */
-export function ParticleStage({ scene, page, darkMode, mosaic }: Props) {
+/** The WebGL layer behind the launch page and every page heading. */
+export function ParticleStage({ scene, darkMode, mosaic }: Props) {
   const hostRef = useRef<HTMLDivElement>(null)
+  const surface = useSyncExternalStore(subscribeMotion, readSurface, () => 'idle' as SurfacePhase)
   const engineRef = useRef<StageEngine | null>(null)
 
   useEffect(() => {
     // A fresh canvas per mount keeps a disposed WebGL context from being reused.
     const canvas = document.createElement('canvas')
     hostRef.current!.appendChild(canvas)
-    const count = window.innerWidth < 760 || (navigator.hardwareConcurrency ?? 8) <= 4 ? 8000 : 15000
+    const count = window.innerWidth < 760 || (navigator.hardwareConcurrency ?? 8) <= 4 ? 6000 : 11000
     const engine = new StageEngine(canvas, {
       intro: () => document.querySelector('.intro-art'),
-      explorer: () => document.querySelector('.overview-page .explorer-art'),
+      page: () => document.querySelector('.explorer-section .page-decoration'),
     }, count)
     const supported = engine.start(() => motionState.charge)
     setStageSupported(supported)
@@ -46,7 +48,7 @@ export function ParticleStage({ scene, page, darkMode, mosaic }: Props) {
 
   useEffect(() => { engineRef.current?.setTheme(darkMode) }, [darkMode])
   useEffect(() => { engineRef.current?.setMosaic(mosaic) }, [mosaic])
-  useEffect(() => { engineRef.current?.setMode(modeFor(scene, page)) }, [scene, page])
+  useEffect(() => { engineRef.current?.setMode(modeFor(scene, surface)) }, [scene, surface])
 
   return <div className="particle-stage" ref={hostRef} aria-hidden="true" />
 }
