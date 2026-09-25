@@ -18,7 +18,7 @@ export function NavigationLinks({ page, onNavigate, darkMode, onThemeToggle }: P
         onNavigate(destination)
       }}>{label}</a>)}
     <span className="nav-divider" aria-hidden="true" />
-    <a className="page-link" href="https://github.com/ranbysal/CANAGI" target="_blank" rel="noreferrer">GitHub</a>
+    <a className="page-link" href="https://www.canagi.help/" target="_blank" rel="noreferrer">Help</a>
     <span className="nav-language" aria-label="Language: English">EN</span>
     <button className="page-theme icon-button" type="button" onClick={onThemeToggle} aria-label={darkMode ? 'Use light theme' : 'Use dark theme'}>
       {darkMode ? <Sun size={17} strokeWidth={1.8} /> : <Moon size={17} strokeWidth={1.8} />}
